@@ -22,6 +22,7 @@ type GameEngineApi = {
   renderer: RendererApi;
   tryMove: (dx: number, dy: number) => void;
   closeDialog: () => void;
+  isEditorModeActive?: () => boolean;
   isGameOver?: () => boolean;
   handleGameOverInteraction?: () => void;
   isIntroVisible?: () => boolean;
@@ -72,6 +73,11 @@ class InputManager {
   }
 
   handleKeyDown(ev: KeyboardEvent): void {
+    // Every branch below drives the live game. While editing, ignore keyboard
+    // input entirely (without calling preventDefault) so editor keystrokes can
+    // never dismiss the intro, resume gameplay, start music, or be swallowed.
+    if (this.gameEngine.isEditorModeActive?.()) return;
+
     // Debug toggle: V key (works in any game state)
     if (ev.key.toLowerCase() === 'v' && ev.shiftKey && ev.ctrlKey) {
       ev.preventDefault();

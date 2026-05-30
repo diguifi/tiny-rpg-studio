@@ -9,6 +9,7 @@ type GameEngineStub = {
   renderer: { draw: () => void };
   tryMove: (dx: number, dy: number) => void;
   closeDialog: () => void;
+  isEditorModeActive?: () => boolean;
   isGameOver?: () => boolean;
   handleGameOverInteraction?: () => void;
   isIntroVisible?: () => boolean;
@@ -100,6 +101,67 @@ describe('InputManager', () => {
     expect(events).toContain('touchend');
     expect(events).toContain('click');
     addSpy.mockRestore();
+  });
+
+  it('handleKeyDown ignores all input in editor mode', () => {
+    const engine = createEngine({
+      isEditorModeActive: () => true,
+      isGameOver: () => true,
+    });
+    const manager = new InputManager(engine);
+    const ev = createKeyEvent('z');
+
+    manager.handleKeyDown(ev);
+
+    expect(ev.preventDefault).not.toHaveBeenCalled();
+    expect(engine.handleGameOverInteraction).not.toHaveBeenCalled();
+    expect(engine.dismissIntroScreen).not.toHaveBeenCalled();
+  });
+
+  // Regression: the original bug was a keystroke in the editor dismissing the
+  // intro overlay, which resumed gameplay and started the YouTube soundtrack.
+  it('handleKeyDown does not dismiss the intro (nor start music) in editor mode', () => {
+    const engine = createEngine({
+      isEditorModeActive: () => true,
+      isIntroVisible: () => true,
+    });
+    const manager = new InputManager(engine);
+    const ev = createKeyEvent('z');
+
+    manager.handleKeyDown(ev);
+
+    expect(engine.dismissIntroScreen).not.toHaveBeenCalled();
+    expect(ev.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('handleKeyDown does not swallow keystrokes typed into editor fields', () => {
+    const engine = createEngine({
+      isEditorModeActive: () => true,
+      isIntroVisible: () => true,
+    });
+    const manager = new InputManager(engine);
+    const input = document.createElement('input');
+    const ev = createKeyEvent('a', input);
+
+    manager.handleKeyDown(ev);
+
+    // Input must reach the field normally instead of being intercepted.
+    expect(ev.preventDefault).not.toHaveBeenCalled();
+    expect(engine.dismissIntroScreen).not.toHaveBeenCalled();
+  });
+
+  it('handleKeyDown still dismisses the intro when playing (not editing)', () => {
+    const engine = createEngine({
+      isEditorModeActive: () => false,
+      isIntroVisible: () => true,
+    });
+    const manager = new InputManager(engine);
+    const ev = createKeyEvent('z');
+
+    manager.handleKeyDown(ev);
+
+    expect(engine.dismissIntroScreen).toHaveBeenCalled();
+    expect(ev.preventDefault).toHaveBeenCalled();
   });
 
   it('handleKeyDown delegates game-over flow', () => {

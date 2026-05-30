@@ -64,6 +64,8 @@ type GameEngineApi = {
   gameState: {
     pauseCalls: string[];
     resumeCalls: string[];
+    setEditorMode: (active: boolean) => void;
+    isEditorModeActive: () => boolean;
     state: { game: { title: string; backgroundMusicVideoId?: string } };
     playerRoomIndex?: number;
     objectsByRoom: Map<number, unknown[]>;
@@ -113,6 +115,8 @@ type GameEngineApi = {
   importGameData: (data: unknown) => void;
   destroy: () => void;
   backgroundMusicEngine?: StubBackgroundMusicEngine;
+  resumeBackgroundMusic: () => void;
+  startEnemyLoop: () => void;
 };
 
 type GameEngineCtor = new (canvas: HTMLCanvasElement) => GameEngineApi;
@@ -438,5 +442,59 @@ describe('GameEngine business rules (legacy)', () => {
     engine.destroy()
 
     expect(engine.backgroundMusicEngine?.destroy).toHaveBeenCalled()
+  })
+
+  it('does not start background music when the intro is dismissed in editor mode', () => {
+    const engine = createEngine()
+    engine.gameState.setEditorMode(true)
+
+    const dismissed = engine.dismissIntroScreen()
+
+    expect(dismissed).toBe(false)
+    expect(engine.backgroundMusicEngine?.play).not.toHaveBeenCalled()
+  })
+
+  it('refuses to play background music while editing even if asked directly', () => {
+    const engine = createEngine()
+    engine.gameState.setEditorMode(true)
+
+    engine.resumeBackgroundMusic()
+
+    expect(engine.backgroundMusicEngine?.play).not.toHaveBeenCalled()
+  })
+
+  it('keeps the intro visible when a dismissal is attempted in editor mode', () => {
+    const engine = createEngine()
+    engine.gameState.setEditorMode(true)
+
+    const dismissed = engine.dismissIntroScreen()
+
+    expect(dismissed).toBe(false)
+    expect(engine.introVisible).toBe(true)
+    expect(engine.isIntroVisible()).toBe(true)
+  })
+
+  it('lets the music play again once the editor is left for the game', () => {
+    const engine = createEngine()
+
+    engine.gameState.setEditorMode(true)
+    expect(engine.dismissIntroScreen()).toBe(false)
+    expect(engine.backgroundMusicEngine?.play).not.toHaveBeenCalled()
+
+    engine.gameState.setEditorMode(false)
+    expect(engine.dismissIntroScreen()).toBe(true)
+    expect(engine.backgroundMusicEngine?.play).toHaveBeenCalled()
+  })
+
+  it('halts the enemy loop instead of starting it in editor mode', () => {
+    const engine = createEngine()
+    engine.gameState.setEditorMode(true)
+    engine.enemyManager.start.mock.calls.length = 0
+    engine.enemyManager.stop.mock.calls.length = 0
+
+    engine.startEnemyLoop()
+
+    expect(engine.enemyManager.start.mock.calls.length).toBe(0)
+    expect(engine.enemyManager.stop.mock.calls.length).toBeGreaterThan(0)
   })
 })

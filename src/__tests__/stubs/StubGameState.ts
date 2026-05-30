@@ -34,6 +34,16 @@ export class StubGameState {
 
   setLevelUpOverlayPresentationSync() {}
 
+  editorMode = false
+
+  setEditorMode(active = false) {
+    this.editorMode = Boolean(active)
+  }
+
+  isEditorModeActive() {
+    return Boolean(this.editorMode)
+  }
+
   resetGame() {
     this.resetCalled = true
   }

@@ -431,6 +431,10 @@ export class GameEngine {
 
   dismissIntroScreen(): boolean {
     if (!this.introVisible || !this.canDismissIntroScreen) return false;
+    // In the editor the intro is rendered as a static preview of the title
+    // screen. Dismissing it would resume gameplay and start the background
+    // music, so it must be inert while editing.
+    if (this.isEditorModeActive()) return false;
     this.introVisible = false;
     this.gameState.resumeGame('intro-screen');
     this.resumeBackgroundMusic();
@@ -439,7 +443,15 @@ export class GameEngine {
   }
 
   resumeBackgroundMusic(): void {
+    // Background music is strictly a play-mode concern; never start it while
+    // the project is being edited regardless of how this path is reached.
+    if (this.isEditorModeActive()) return;
     this.backgroundMusicEngine.play();
+  }
+
+  // Single source of truth for "is the project being edited rather than played".
+  isEditorModeActive(): boolean {
+    return this.gameState.isEditorModeActive();
   }
 
   isIntroVisible(): boolean {
@@ -589,6 +601,12 @@ export class GameEngine {
   }
 
   startEnemyLoop(): void {
+    // Do not run the enemy simulation while editing. Halt the timer entirely
+    // instead of relying on a per-tick no-op so nothing ticks in the background.
+    if (this.isEditorModeActive()) {
+      this.enemyManager.stop();
+      return;
+    }
     this.enemyManager.start();
   }
 
