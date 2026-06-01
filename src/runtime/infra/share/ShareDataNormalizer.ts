@@ -2,6 +2,7 @@
 import { EnemyDefinitions } from '../../domain/definitions/EnemyDefinitions';
 import { ITEM_TYPES } from '../../domain/constants/itemTypes';
 import { StateObjectManager } from '../../domain/state/StateObjectManager';
+import { itemCatalog } from '../../domain/services/ItemCatalog';
 import { ShareConstants } from './ShareConstants';
 import { ShareMath } from './ShareMath';
 import { ShareVariableCodec } from './ShareVariableCodec';
@@ -46,6 +47,10 @@ type ShareObjectInput = {
     variableId?: string | null;
     on?: boolean;
     endingText?: string;
+    inputVariableId?: string | null;
+    inputVariableId2?: string | null;
+    outputVariableId?: string | null;
+    hiddenInGame?: boolean;
 };
 
 type SharePositionOptions = {
@@ -259,7 +264,8 @@ class ShareDataNormalizer {
 
     static normalizeSwitchObjects(list: unknown[] | null | undefined) {
         if (!Array.isArray(list)) return [];
-        const seenRooms = new Set<number>();
+        // Allow multiple switches per room; only guard against duplicate tiles
+        const seenTiles = new Set<string>();
         const fallbackNibble = ShareVariableCodec.variableIdToNibble(ShareVariableCodec.getFirstVariableId()) || 1;
         const result: Array<PositionEntry & { variableNibble: number; stateNibble: number }> = [];
         for (const raw of list) {
@@ -269,8 +275,9 @@ class ShareDataNormalizer {
             const y = ShareMath.clamp(Number(entry.y), 0, ShareConstants.MATRIX_SIZE - 1, 0);
             if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
             const roomIndex = ShareMath.clampRoomIndex(entry.roomIndex);
-            if (seenRooms.has(roomIndex)) continue;
-            seenRooms.add(roomIndex);
+            const tileKey = `${roomIndex}:${x}:${y}`;
+            if (seenTiles.has(tileKey)) continue;
+            seenTiles.add(tileKey);
             const variableNibble =
                 ShareVariableCodec.variableIdToNibble(typeof entry.variableId === 'string' ? entry.variableId : null) ||
                 fallbackNibble;
@@ -282,6 +289,64 @@ class ShareDataNormalizer {
             if (a.y !== b.y) return a.y - b.y;
             return a.x - b.x;
         });
+    }
+
+    static normalizeLogicGateObjects(list: unknown[] | null | undefined) {
+        if (!Array.isArray(list)) return [];
+        const typeToNibble: Record<string, number> = {
+            [ITEM_TYPES.LOGIC_GATE_NOT]: 1,
+            [ITEM_TYPES.LOGIC_GATE_AND]: 2,
+            [ITEM_TYPES.LOGIC_GATE_OR]: 3,
+            [ITEM_TYPES.LOGIC_GATE_NAND]: 4,
+            [ITEM_TYPES.LOGIC_GATE_NOR]: 5
+        };
+        // Allow multiple instances per room; only guard against duplicate tiles (would misalign nibbles)
+        const seen = new Set<string>(); // key: `${type}:${roomIndex}:${x}:${y}`
+        const result: Array<PositionEntry & {
+            typeNibble: number; inputANibble: number; inputBNibble: number; outputNibble: number; hiddenNibble: number;
+        }> = [];
+        for (const raw of list) {
+            const entry = raw as ShareObjectInput;
+            const typeNibble = typeToNibble[entry.type as string];
+            if (!typeNibble) continue;
+            const x = ShareMath.clamp(Number(entry.x), 0, ShareConstants.MATRIX_SIZE - 1, 0);
+            const y = ShareMath.clamp(Number(entry.y), 0, ShareConstants.MATRIX_SIZE - 1, 0);
+            const roomIndex = ShareMath.clampRoomIndex(entry.roomIndex);
+            const key = `${entry.type}:${roomIndex}:${x}:${y}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            result.push({
+                x, y, roomIndex, typeNibble,
+                inputANibble: ShareVariableCodec.variableIdToNibble(entry.inputVariableId ?? null),
+                inputBNibble: ShareVariableCodec.variableIdToNibble(entry.inputVariableId2 ?? null),
+                outputNibble: ShareVariableCodec.variableIdToNibble(entry.outputVariableId ?? null),
+                hiddenNibble: entry.hiddenInGame ? 1 : 0
+            });
+        }
+        return result.sort((a, b) =>
+            (a.roomIndex - b.roomIndex) || (a.y - b.y) || (a.x - b.x));
+    }
+
+    static normalizeLedObjects(list: unknown[] | null | undefined) {
+        if (!Array.isArray(list)) return [];
+        const seenTiles = new Set<string>(); // allow multiple per room; guard duplicate tiles
+        const result: Array<PositionEntry & { variableNibble: number }> = [];
+        for (const raw of list) {
+            const entry = raw as ShareObjectInput;
+            if (entry.type !== ITEM_TYPES.LOGIC_LED) continue;
+            const x = ShareMath.clamp(Number(entry.x), 0, ShareConstants.MATRIX_SIZE - 1, 0);
+            const y = ShareMath.clamp(Number(entry.y), 0, ShareConstants.MATRIX_SIZE - 1, 0);
+            const roomIndex = ShareMath.clampRoomIndex(entry.roomIndex);
+            const tileKey = `${roomIndex}:${x}:${y}`;
+            if (seenTiles.has(tileKey)) continue;
+            seenTiles.add(tileKey);
+            const variableNibble = ShareVariableCodec.variableIdToNibble(
+                typeof entry.variableId === 'string' ? entry.variableId : null
+            );
+            result.push({ x, y, roomIndex, variableNibble });
+        }
+        return result.sort((a, b) =>
+            (a.roomIndex - b.roomIndex) || (a.y - b.y) || (a.x - b.x));
     }
 
     static buildObjectEntries(
@@ -298,8 +363,9 @@ class ShareDataNormalizer {
             const roomIndex = ShareMath.clampRoomIndex(pos.roomIndex);
             const x = ShareMath.clamp(Number(pos.x), 0, ShareConstants.MATRIX_SIZE - 1, 0);
             const y = ShareMath.clamp(Number(pos.y), 0, ShareConstants.MATRIX_SIZE - 1, 0);
+            const positional = itemCatalog.allowsMultiplePerRoom(type as Parameters<typeof itemCatalog.allowsMultiplePerRoom>[0]);
             const entry: Record<string, unknown> = {
-                id: `${type}-${roomIndex}`,
+                id: positional ? `${type}-${roomIndex}-${x}-${y}` : `${type}-${roomIndex}`,
                 type,
                 roomIndex,
                 x,

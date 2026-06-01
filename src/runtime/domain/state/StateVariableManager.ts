@@ -1,6 +1,10 @@
 
 import type { GameDefinition, RuntimeState, VariableDefinition } from '../../../types/gameState';
 import { TextResources } from '../../adapters/TextResources';
+import { ITEM_TYPES } from '../constants/itemTypes';
+import type { ObjectEntry } from './StateObjectManager';
+
+const LOGIC_GATE_ITERATION_LIMIT = 20;
 
 const getVariableText = (key: string, fallback = ''): string => {
     const value = TextResources.get(key, fallback) as string;
@@ -159,6 +163,54 @@ class StateVariableManager {
             });
         }
         return updated;
+    }
+
+    /**
+     * Evaluates all logic gates and writes their results to the output variables.
+     * Uses the INTERNAL setVariableValue() (returning boolean) to avoid recursion
+     * through the GameState hook. Iterates to support chained gates, with a cap to
+     * protect against cycles. Returns the list of [variableId, value] pairs changed.
+     */
+    evaluateLogicGates(objects: ObjectEntry[]): Array<[string, boolean]> {
+        const allChanges: Array<[string, boolean]> = [];
+        if (!Array.isArray(objects) || !objects.length) return allChanges;
+        const gates = objects.filter((obj) => obj.isLogicGate);
+        if (!gates.length) return allChanges;
+
+        let changed = true;
+        let iterations = 0;
+        while (changed && iterations < LOGIC_GATE_ITERATION_LIMIT) {
+            changed = false;
+            iterations++;
+            for (const gate of gates) {
+                const outputId = gate.outputVariableId;
+                if (!outputId) continue;
+                const a = this.isVariableOn(gate.inputVariableId);
+                const b = this.isVariableOn(gate.inputVariableId2);
+                const result = StateVariableManager.computeGate(gate.type, a, b);
+                if (result === this.isVariableOn(outputId)) continue;
+                if (this.setVariableValue(outputId, result)) {
+                    allChanges.push([outputId, result]);
+                    changed = true;
+                }
+            }
+        }
+
+        if (iterations >= LOGIC_GATE_ITERATION_LIMIT) {
+            console.warn('[LogicGate] Iteration limit reached — possible cycle');
+        }
+        return allChanges;
+    }
+
+    static computeGate(type: string, a: boolean, b: boolean): boolean {
+        switch (type) {
+            case ITEM_TYPES.LOGIC_GATE_NOT: return !a;
+            case ITEM_TYPES.LOGIC_GATE_AND: return a && b;
+            case ITEM_TYPES.LOGIC_GATE_OR: return a || b;
+            case ITEM_TYPES.LOGIC_GATE_NAND: return !(a && b);
+            case ITEM_TYPES.LOGIC_GATE_NOR: return !(a || b);
+            default: return false;
+        }
     }
 
     getFirstVariableId(): string | null {

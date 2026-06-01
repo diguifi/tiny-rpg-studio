@@ -442,6 +442,8 @@ class GameState {
         // Clear ALL pause reasons (not just 'game-over') to prevent freeze
         // when resetting mid-combat or mid-level-up where multiple pause reasons accumulate
         this.lifecycle.resumeGame(null);
+        // Compute initial logic gate state (and sync switches/variable-doors)
+        this.evaluateLogicGatesAndSyncSideEffects();
     }
 
     exportGameData(): unknown {
@@ -492,8 +494,36 @@ class GameState {
         this.objectManager.removeObject(type as Parameters<typeof this.objectManager.removeObject>[0], roomIndex);
     }
 
+    removeObjectById(id: string): void {
+        this.objectManager.removeObjectById(id);
+    }
+
     setObjectVariable(type: string, roomIndex: number, variableId: string | null) {
         return this.objectManager.setObjectVariable(type as Parameters<typeof this.objectManager.setObjectVariable>[0], roomIndex, variableId);
+    }
+
+    setObjectVariableById(id: string, variableId: string | null): string | null {
+        return this.objectManager.setObjectVariableById(id, variableId);
+    }
+
+    setGateInputVariableById(id: string, variableId: string | null, slot: 1 | 2): string | null {
+        return this.objectManager.setGateInputVariableById(id, variableId, slot);
+    }
+
+    setGateOutputVariableById(id: string, variableId: string | null): string | null {
+        return this.objectManager.setGateOutputVariableById(id, variableId);
+    }
+
+    setObjectHiddenInGameById(id: string, hidden: boolean): boolean {
+        return this.objectManager.setObjectHiddenInGameById(id, hidden);
+    }
+
+    setGateInputVariable(type: string, roomIndex: number, variableId: string | null, slot: 1 | 2): string | null {
+        return this.objectManager.setGateInputVariable(type as ItemType, roomIndex, variableId, slot);
+    }
+
+    setGateOutputVariable(type: string, roomIndex: number, variableId: string | null): string | null {
+        return this.objectManager.setGateOutputVariable(type as ItemType, roomIndex, variableId);
     }
 
     setPlayerEndText(roomIndex: number, text: string): string {
@@ -624,8 +654,38 @@ class GameState {
         if (success) {
             openedMagicDoor = this.objectManager.checkOpenedMagicDoor(normalizedId, value);
             this.objectManager.syncSwitchState(normalizedId, value);
+            // Evaluate logic gates + sync side-effects for the variables they changed
+            if (this.evaluateLogicGatesAndSyncSideEffects()) {
+                openedMagicDoor = true;
+            }
         }
         return [success, openedMagicDoor];
+    }
+
+    /**
+     * Evaluates the logic gate network and synchronizes side-effects (switches,
+     * variable-doors) for every variable the gates changed. Returns true if any
+     * gate change opened a variable-door. Used by setVariableValue(), resetGame()
+     * and after importGameData().
+     */
+    private evaluateLogicGatesAndSyncSideEffects(): boolean {
+        const gateChanges = this.variableManager.evaluateLogicGates(this.objectManager.getObjects());
+        let openedMagicDoor = false;
+        for (const [changedId, changedValue] of gateChanges) {
+            this.objectManager.syncSwitchState(changedId, changedValue);
+            if (this.objectManager.checkOpenedMagicDoor(changedId, changedValue)) {
+                openedMagicDoor = true;
+            }
+        }
+        return openedMagicDoor;
+    }
+
+    recomputeLogicGates(): void {
+        this.evaluateLogicGatesAndSyncSideEffects();
+    }
+
+    isLogicGateOutput(variableId: string): boolean {
+        return this.objectManager.isLogicGateOutput(variableId);
     }
 
     getEnemies(): EnemyDefinition[] {

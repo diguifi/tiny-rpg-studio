@@ -72,6 +72,7 @@ type GameStateApi = {
   setActiveEndingText?: (text: string) => void;
   normalizeVariableId?: (id: string | null) => string | null;
   isVariableOn?: (id: string) => boolean;
+  isLogicGateOutput?: (id: string) => boolean;
   setVariableValue?: (id: string, value: boolean, persist?: boolean) => [boolean, boolean?];
   addKeys?: (count: number) => void;
   getLives?: () => number;
@@ -295,9 +296,13 @@ class InteractionManager {
   handleSwitch(object: GameObjectState): boolean {
     const OT = this.types;
     if (object.type !== OT.SWITCH) return false;
+    const variableId = this.gameState.normalizeVariableId?.(object.variableId ?? null) ?? null;
+    // If the variable is driven by a logic gate, the switch has no effect
+    if (variableId && this.gameState.isLogicGateOutput?.(variableId)) {
+      return true;
+    }
     object.on = !object.on;
     soundEngine.play('switchToggle');
-    const variableId = this.gameState.normalizeVariableId?.(object.variableId ?? null) ?? null;
     if (variableId) {
       this.gameState.setVariableValue?.(variableId, object.on);
     }

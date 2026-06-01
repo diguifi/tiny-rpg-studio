@@ -135,6 +135,73 @@ const ITEM_DEFINITION_DATA: ItemDefinitionData[] = [
             tags: ['placeable', 'collectible', 'sword', 'hide-when-collected']
         },
         sprite: SpriteMatrixRegistry.get('object', 'sword-wood')
+    },
+    {
+        type: ITEM_TYPES.LOGIC_GATE_NOT,
+        id: 'object-logic-gate-not',
+        name: 'Porta NOT',
+        nameKey: 'objects.label.logicGateNot',
+        behavior: {
+            order: 120,
+            tags: ['placeable', 'logic-gate', 'single-input']
+        },
+        sprite: SpriteMatrixRegistry.get('object', 'logic-gate-not')
+    },
+    {
+        type: ITEM_TYPES.LOGIC_GATE_AND,
+        id: 'object-logic-gate-and',
+        name: 'Porta AND',
+        nameKey: 'objects.label.logicGateAnd',
+        behavior: {
+            order: 130,
+            tags: ['placeable', 'logic-gate']
+        },
+        sprite: SpriteMatrixRegistry.get('object', 'logic-gate-and')
+    },
+    {
+        type: ITEM_TYPES.LOGIC_GATE_OR,
+        id: 'object-logic-gate-or',
+        name: 'Porta OR',
+        nameKey: 'objects.label.logicGateOr',
+        behavior: {
+            order: 140,
+            tags: ['placeable', 'logic-gate']
+        },
+        sprite: SpriteMatrixRegistry.get('object', 'logic-gate-or')
+    },
+    {
+        type: ITEM_TYPES.LOGIC_GATE_NAND,
+        id: 'object-logic-gate-nand',
+        name: 'Porta NAND',
+        nameKey: 'objects.label.logicGateNand',
+        behavior: {
+            order: 150,
+            tags: ['placeable', 'logic-gate']
+        },
+        sprite: SpriteMatrixRegistry.get('object', 'logic-gate-nand')
+    },
+    {
+        type: ITEM_TYPES.LOGIC_GATE_NOR,
+        id: 'object-logic-gate-nor',
+        name: 'Porta NOR',
+        nameKey: 'objects.label.logicGateNor',
+        behavior: {
+            order: 160,
+            tags: ['placeable', 'logic-gate']
+        },
+        sprite: SpriteMatrixRegistry.get('object', 'logic-gate-nor')
+    },
+    {
+        type: ITEM_TYPES.LOGIC_LED,
+        id: 'object-logic-led',
+        name: 'LED',
+        nameKey: 'objects.label.logicLed',
+        behavior: {
+            order: 170,
+            tags: ['placeable', 'led', 'requires-variable']
+        },
+        sprite: SpriteMatrixRegistry.get('object', 'logic-led'),
+        spriteOn: SpriteMatrixRegistry.get('object', 'logic-led--on')
     }
 ];
 

@@ -56,6 +56,8 @@ export class StubGameState {
     this.importedData = data
   }
 
+  recomputeLogicGates() {}
+
   setGameOver(value: boolean, reason?: string) {
     this.setGameOverCalls.push({ value, reason })
     this.gameOver = value

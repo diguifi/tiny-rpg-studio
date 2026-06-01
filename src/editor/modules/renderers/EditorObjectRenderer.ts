@@ -2,6 +2,7 @@
 import { StateObjectManager } from '../../../runtime/domain/state/StateObjectManager';
 import { ITEM_TYPES, type ItemType } from '../../../runtime/domain/constants/itemTypes';
 import { ItemDefinitions } from '../../../runtime/domain/definitions/ItemDefinitions';
+import { itemCatalog } from '../../../runtime/domain/services/ItemCatalog';
 import { EditorConstants } from '../EditorConstants';
 import { EditorRendererBase } from './EditorRendererBase';
 import { RendererConstants } from '../../../runtime/adapters/renderer/RendererConstants';
@@ -29,6 +30,13 @@ type EditorObject = {
     opened?: boolean;
     collected?: boolean;
     endingText?: string;
+    inputVariableId?: string | null;
+    inputVariableId2?: string | null;
+    outputVariableId?: string | null;
+    isLogicGate?: boolean;
+    isSingleInputGate?: boolean;
+    isLed?: boolean;
+    hiddenInGame?: boolean;
 };
 
 class EditorObjectRenderer extends EditorRendererBase {
@@ -47,7 +55,11 @@ class EditorObjectRenderer extends EditorRendererBase {
             if (categoryFilter === 'all') return true;
             if (categoryFilter === 'swords') {
                 const itemDef = ItemDefinitions.getItemDefinition(def.type as ItemType);
-                return itemDef && itemDef.hasTag('sword');
+                return Boolean(itemDef && itemDef.hasTag('sword'));
+            }
+            if (categoryFilter === 'logic') {
+                const itemDef = ItemDefinitions.getItemDefinition(def.type as ItemType);
+                return Boolean(itemDef && (itemDef.hasTag('logic-gate') || itemDef.hasTag('led') || itemDef.hasTag('switch')));
             }
             return true;
         });
@@ -72,7 +84,11 @@ class EditorObjectRenderer extends EditorRendererBase {
             // Use allPlacedTypes for global-unique objects so they appear as placed
             // even when the current room is different from the room they're in.
             const isGlobalUnique = definition.type === EditorObjectTypes.PLAYER_START;
-            const isPlaced = isGlobalUnique ? allPlacedTypes.has(definition.type) : placedTypes.has(definition.type);
+            const isMulti = itemCatalog.allowsMultiplePerRoom(definition.type as ItemType);
+            const instanceCount = placedObjects.filter((o) => o.type === definition.type).length;
+            const isPlaced = isMulti
+                ? instanceCount >= StateObjectManager.MULTI_INSTANCE_LIMIT
+                : (isGlobalUnique ? allPlacedTypes.has(definition.type) : placedTypes.has(definition.type));
             if (isPlaced) {
                 card.classList.add('placed');
             }
@@ -94,9 +110,16 @@ class EditorObjectRenderer extends EditorRendererBase {
             info.className = 'object-type-info';
             const infoPlacedKey = isGlobalUnique ? 'objects.info.placed.global' : 'objects.info.placed';
             const infoAvailableKey = isGlobalUnique ? 'objects.info.available.global' : 'objects.info.available';
-            info.textContent = isPlaced
-                ? this.t(infoPlacedKey)
-                : this.t(infoAvailableKey);
+            if (isMulti) {
+                info.textContent = this.tf('objects.info.count', {
+                    count: instanceCount,
+                    max: StateObjectManager.MULTI_INSTANCE_LIMIT
+                });
+            } else {
+                info.textContent = isPlaced
+                    ? this.t(infoPlacedKey)
+                    : this.t(infoAvailableKey);
+            }
 
             meta.append(name, info);
 
@@ -173,6 +196,7 @@ class EditorObjectRenderer extends EditorRendererBase {
             card.className = 'object-card';
             card.dataset.type = object.type;
             card.dataset.roomIndex = String(object.roomIndex);
+            if (object.id) card.dataset.objectId = object.id;
 
             const preview = document.createElement('canvas');
             preview.className = 'object-preview';
@@ -209,7 +233,7 @@ class EditorObjectRenderer extends EditorRendererBase {
                 select.className = 'object-config-select';
                 this.manager.npcService.populateVariableSelect(select, object.variableId || '');
                 select.addEventListener('change', () => {
-                    this.gameEngine.setObjectVariable(object.type, object.roomIndex, select.value);
+                    this.gameEngine.setObjectVariableById(object.id ?? '', select.value);
                     this.renderObjects();
                     this.service.worldRenderer.renderWorldGrid();
                     this.service.renderEditor();
@@ -229,6 +253,33 @@ class EditorObjectRenderer extends EditorRendererBase {
                 });
                 config.appendChild(status);
 
+                body.appendChild(config);
+            }
+
+            if (object.isLogicGate) {
+                body.appendChild(this.buildLogicGateConfig(object));
+            }
+
+            if (object.isLed) {
+                const config = document.createElement('div');
+                config.className = 'object-config';
+
+                const label = document.createElement('label');
+                label.className = 'object-config-label';
+
+                const select = document.createElement('select');
+                select.className = 'object-config-select';
+                this.manager.npcService.populateVariableSelect(select, object.variableId || '');
+                select.addEventListener('change', () => {
+                    this.gameEngine.setObjectVariableById(object.id ?? '', select.value);
+                    this.renderObjects();
+                    this.service.worldRenderer.renderWorldGrid();
+                    this.service.renderEditor();
+                    this.manager.updateJSON();
+                    this.manager.history.pushCurrentState();
+                });
+                label.append(`${this.t('objects.logic.variableLabel')} `, select);
+                config.appendChild(label);
                 body.appendChild(config);
             }
 
@@ -313,6 +364,7 @@ class EditorObjectRenderer extends EditorRendererBase {
                 removeBtn.className = 'object-remove';
                 removeBtn.dataset.type = object.type;
                 removeBtn.dataset.roomIndex = String(object.roomIndex);
+                if (object.id) removeBtn.dataset.objectId = object.id;
                 removeBtn.textContent = this.t('buttons.remove');
                 body.appendChild(removeBtn);
             } else {
@@ -338,6 +390,81 @@ class EditorObjectRenderer extends EditorRendererBase {
             card.append(preview, body);
             container.appendChild(card);
         });
+    }
+
+    private buildLogicGateConfig(object: EditorObject): HTMLElement {
+        const config = document.createElement('div');
+        config.className = 'object-config';
+
+        // Collect output variables already used by OTHER gates so they can be disabled
+        const allObjects = ((this.gameEngine as unknown as { getObjects?(): EditorObject[] }).getObjects?.() || []) as EditorObject[];
+        const usedOutputs = new Set<string>();
+        allObjects.forEach((obj) => {
+            if (obj.isLogicGate && obj.outputVariableId && obj.id !== object.id) {
+                usedOutputs.add(obj.outputVariableId);
+            }
+        });
+
+        const refresh = () => {
+            this.renderObjects();
+            this.service.worldRenderer.renderWorldGrid();
+            this.service.renderEditor();
+            this.manager.updateJSON();
+            this.manager.history.pushCurrentState();
+        };
+
+        const addSelect = (labelKey: string, selectedId: string, onChange: (value: string) => void, disabledIds?: Set<string>) => {
+            const label = document.createElement('label');
+            label.className = 'object-config-label';
+            const select = document.createElement('select');
+            select.className = 'object-config-select';
+            this.manager.npcService.populateVariableSelect(select, selectedId);
+            if (disabledIds) {
+                Array.from(select.options).forEach((option) => {
+                    if (option.value && disabledIds.has(option.value)) {
+                        option.disabled = true;
+                    }
+                });
+            }
+            select.addEventListener('change', () => {
+                onChange(select.value);
+                refresh();
+            });
+            label.append(`${this.t(labelKey)} `, select);
+            config.appendChild(label);
+        };
+
+        const gateId = object.id ?? '';
+        if (object.isSingleInputGate) {
+            addSelect('objects.logic.inputLabel', object.inputVariableId || '', (value) => {
+                this.gameEngine.setGateInputVariableById(gateId, value || null, 1);
+            });
+        } else {
+            addSelect('objects.logic.inputALabel', object.inputVariableId || '', (value) => {
+                this.gameEngine.setGateInputVariableById(gateId, value || null, 1);
+            });
+            addSelect('objects.logic.inputBLabel', object.inputVariableId2 || '', (value) => {
+                this.gameEngine.setGateInputVariableById(gateId, value || null, 2);
+            });
+        }
+        addSelect('objects.logic.outputLabel', object.outputVariableId || '', (value) => {
+            this.gameEngine.setGateOutputVariableById(gateId, value || null);
+        }, usedOutputs);
+
+        // Visibility toggle: shown by default; when unchecked the gate works but is invisible in-game
+        const visibleLabel = document.createElement('label');
+        visibleLabel.className = 'object-config-label object-config-checkbox';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = !object.hiddenInGame;
+        checkbox.addEventListener('change', () => {
+            this.gameEngine.setObjectHiddenInGameById(gateId, !checkbox.checked);
+            refresh();
+        });
+        visibleLabel.append(checkbox, ` ${this.t('objects.logic.visibleInGame')}`);
+        config.appendChild(visibleLabel);
+
+        return config;
     }
 
     drawObjectPreview(canvas: HTMLCanvasElement, type: string): void {

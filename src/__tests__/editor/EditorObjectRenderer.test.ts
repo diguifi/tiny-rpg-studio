@@ -25,6 +25,9 @@ vi.mock('../../runtime/domain/state/StateObjectManager', () => ({
   StateObjectManager: {
     get PLAYER_END_TEXT_LIMIT() {
       return mockData.playerEndTextLimit;
+    },
+    get MULTI_INSTANCE_LIMIT() {
+      return 4;
     }
   }
 }));
@@ -35,6 +38,12 @@ vi.mock('../../runtime/domain/definitions/ItemDefinitions', () => ({
   }
 }));
 
+vi.mock('../../runtime/domain/services/ItemCatalog', () => ({
+  itemCatalog: {
+    allowsMultiplePerRoom: vi.fn(() => false)
+  }
+}));
+
 import { ITEM_TYPES } from '../../runtime/domain/constants/itemTypes';
 import { EditorObjectRenderer } from '../../editor/modules/renderers/EditorObjectRenderer';
 
@@ -42,6 +51,7 @@ type EditorObjectRendererService = ConstructorParameters<typeof EditorObjectRend
 type ObjectLabelDefinitions = Parameters<EditorObjectRenderer['getObjectLabel']>[1];
 type EditorObjectMock = {
   type: string;
+  id?: string;
   roomIndex?: number;
   x?: number;
   y?: number;
@@ -105,6 +115,10 @@ function createFixture() {
   const gameEngine = {
     getObjectsForRoom: vi.fn((): EditorObjectMock[] => []),
     setObjectVariable: vi.fn(),
+    setObjectVariableById: vi.fn(),
+    setGateInputVariableById: vi.fn(),
+    setGateOutputVariableById: vi.fn(),
+    setObjectHiddenInGameById: vi.fn(),
     isVariableOn: vi.fn(() => false),
     renderer: {
       drawObjectSprite: vi.fn(),
@@ -274,7 +288,7 @@ describe('EditorObjectRenderer', () => {
     ];
     fixture.gameEngine.isVariableOn.mockReturnValueOnce(false);
     fixture.gameEngine.getObjectsForRoom.mockReturnValue([
-      { type: ITEM_TYPES.SWITCH, roomIndex: 1, x: 1, y: 2, variableId: 'var-1', on: true },
+      { type: ITEM_TYPES.SWITCH, roomIndex: 1, x: 1, y: 2, variableId: 'var-1', on: true, id: 'switch-1' },
       { type: ITEM_TYPES.DOOR_VARIABLE, roomIndex: 1, x: 2, y: 3, variableId: 'var-2' },
       { type: ITEM_TYPES.DOOR, roomIndex: 1, x: 3, y: 4, opened: true },
       { type: ITEM_TYPES.KEY, roomIndex: 1, x: 4, y: 5, collected: true },
@@ -307,7 +321,7 @@ describe('EditorObjectRenderer', () => {
     expect(selects).toHaveLength(2);
     (selects[0] as HTMLSelectElement).value = 'var-2';
     selects[0].dispatchEvent(new Event('change'));
-    expect(fixture.gameEngine.setObjectVariable).toHaveBeenCalledWith(ITEM_TYPES.SWITCH, 1, 'var-2');
+    expect(fixture.gameEngine.setObjectVariableById).toHaveBeenCalledWith('switch-1', 'var-2');
     expect(fixture.worldRenderer.renderWorldGrid).toHaveBeenCalled();
     expect(fixture.renderEditor).toHaveBeenCalled();
     expect(fixture.manager.updateJSON).toHaveBeenCalled();

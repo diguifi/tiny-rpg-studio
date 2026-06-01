@@ -9,7 +9,13 @@ const ITEM_TYPES = {
     XP_SCROLL: 'xp-scroll',
     SWORD: 'sword',
     SWORD_BRONZE: 'sword-bronze',
-    SWORD_WOOD: 'sword-wood'
+    SWORD_WOOD: 'sword-wood',
+    LOGIC_GATE_NOT: 'logic-gate-not',
+    LOGIC_GATE_AND: 'logic-gate-and',
+    LOGIC_GATE_OR: 'logic-gate-or',
+    LOGIC_GATE_NAND: 'logic-gate-nand',
+    LOGIC_GATE_NOR: 'logic-gate-nor',
+    LOGIC_LED: 'logic-led'
 } as const;
 
 type ItemType = (typeof ITEM_TYPES)[keyof typeof ITEM_TYPES];

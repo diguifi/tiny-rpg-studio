@@ -131,3 +131,160 @@ describe('StateObjectManager', () => {
     expect(manager.getObjects().some((o) => o.type === ITEM_TYPES.PLAYER_START)).toBe(true);
   });
 });
+
+describe('StateObjectManager - logic gates', () => {
+  const createGateVariableManager = () => {
+    const valid = new Set(['var-1', 'var-2', 'var-3']);
+    return {
+      getFirstVariableId: () => 'var-1',
+      normalizeVariableId: (value: string | null | undefined) => (typeof value === 'string' && valid.has(value) ? value : null),
+    };
+  };
+
+  const createGame = () => ({ start: { x: 1, y: 1, roomIndex: 0 }, objects: [], variables: [] });
+
+  it('preserves logic gate variable fields through normalizeObjects', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createGateVariableManager());
+    const normalized = manager.normalizeObjects([
+      { type: ITEM_TYPES.LOGIC_GATE_AND, roomIndex: 0, x: 1, y: 1, inputVariableId: 'var-1', inputVariableId2: 'var-2', outputVariableId: 'var-3' },
+    ]);
+    const gate = normalized.find((o) => o.type === ITEM_TYPES.LOGIC_GATE_AND);
+    expect(gate?.inputVariableId).toBe('var-1');
+    expect(gate?.inputVariableId2).toBe('var-2');
+    expect(gate?.outputVariableId).toBe('var-3');
+  });
+
+  it('discards invalid variable ids to null', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createGateVariableManager());
+    const normalized = manager.normalizeObjects([
+      { type: ITEM_TYPES.LOGIC_GATE_NOT, roomIndex: 0, x: 1, y: 1, inputVariableId: 'bogus', outputVariableId: 'var-1' },
+    ]);
+    const gate = normalized.find((o) => o.type === ITEM_TYPES.LOGIC_GATE_NOT);
+    expect(gate?.inputVariableId).toBeNull();
+    expect(gate?.outputVariableId).toBe('var-1');
+  });
+
+  it('applies first-wins on duplicate outputs', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createGateVariableManager());
+    const normalized = manager.normalizeObjects([
+      { type: ITEM_TYPES.LOGIC_GATE_AND, roomIndex: 0, x: 1, y: 1, outputVariableId: 'var-3' },
+      { type: ITEM_TYPES.LOGIC_GATE_OR, roomIndex: 1, x: 1, y: 1, outputVariableId: 'var-3' },
+    ]);
+    const first = normalized.find((o) => o.type === ITEM_TYPES.LOGIC_GATE_AND);
+    const second = normalized.find((o) => o.type === ITEM_TYPES.LOGIC_GATE_OR);
+    expect(first?.outputVariableId).toBe('var-3');
+    expect(second?.outputVariableId).toBeNull();
+  });
+
+  it('computes isLogicGate / isSingleInputGate / isLed flags', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createGateVariableManager());
+    manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_NOT, 0, 1, 1);
+    manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_AND, 0, 2, 2);
+    manager.setObjectPosition(ITEM_TYPES.LOGIC_LED, 0, 3, 3);
+    const objects = manager.getObjects();
+    const not = objects.find((o) => o.type === ITEM_TYPES.LOGIC_GATE_NOT);
+    const and = objects.find((o) => o.type === ITEM_TYPES.LOGIC_GATE_AND);
+    const led = objects.find((o) => o.type === ITEM_TYPES.LOGIC_LED);
+    expect(not?.isLogicGate).toBe(true);
+    expect(not?.isSingleInputGate).toBe(true);
+    expect(and?.isSingleInputGate).toBe(false);
+    expect(led?.isLed).toBe(true);
+  });
+
+  it('gives a freshly placed LED a fallback variable', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createGateVariableManager());
+    manager.setObjectPosition(ITEM_TYPES.LOGIC_LED, 0, 3, 3);
+    const led = manager.getObjects().find((o) => o.type === ITEM_TYPES.LOGIC_LED);
+    expect(led?.variableId).toBe('var-1');
+  });
+
+  it('isLogicGateOutput reflects configured outputs', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createGateVariableManager());
+    manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_AND, 0, 1, 1);
+    manager.setGateOutputVariable(ITEM_TYPES.LOGIC_GATE_AND, 0, 'var-3');
+    expect(manager.isLogicGateOutput('var-3')).toBe(true);
+    expect(manager.isLogicGateOutput('var-2')).toBe(false);
+  });
+
+  it('rejects an output already used by another gate', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createGateVariableManager());
+    manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_AND, 0, 1, 1);
+    manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_OR, 1, 1, 1);
+    manager.setGateOutputVariable(ITEM_TYPES.LOGIC_GATE_AND, 0, 'var-3');
+    const result = manager.setGateOutputVariable(ITEM_TYPES.LOGIC_GATE_OR, 1, 'var-3');
+    expect(result).toBeNull();
+    const or = manager.getObjects().find((o) => o.type === ITEM_TYPES.LOGIC_GATE_OR);
+    expect(or?.outputVariableId).toBeNull();
+  });
+});
+
+describe('StateObjectManager - multi-instance (logic category)', () => {
+  const createGame = () => ({ start: { x: 1, y: 1, roomIndex: 0 }, objects: [], variables: [] });
+  const createVarManager = () => ({
+    getFirstVariableId: () => 'var-1',
+    normalizeVariableId: (value: string | null | undefined) =>
+      (typeof value === 'string' && /^var-[1-9]$/.test(value) ? value : null),
+  });
+
+  it('places up to 4 NOT gates in the same room with distinct ids', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createVarManager());
+    for (let i = 0; i < 4; i++) {
+      expect(manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_NOT, 0, i, 0)).not.toBeNull();
+    }
+    const gates = manager.getObjects().filter((o) => o.type === ITEM_TYPES.LOGIC_GATE_NOT);
+    expect(gates.length).toBe(4);
+    expect(new Set(gates.map((g) => g.id)).size).toBe(4);
+  });
+
+  it('rejects the 5th instance of the same type in a room (limit)', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createVarManager());
+    for (let i = 0; i < 4; i++) manager.setObjectPosition(ITEM_TYPES.LOGIC_LED, 0, i, 0);
+    expect(manager.setObjectPosition(ITEM_TYPES.LOGIC_LED, 0, 5, 0)).toBeNull();
+    expect(manager.getObjects().filter((o) => o.type === ITEM_TYPES.LOGIC_LED).length).toBe(4);
+  });
+
+  it('counts the limit per type, allowing 4 NOT + 4 AND in the same room', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createVarManager());
+    for (let i = 0; i < 4; i++) manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_NOT, 0, i, 0);
+    for (let i = 0; i < 4; i++) manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_AND, 0, i, 1);
+    expect(manager.getObjects().filter((o) => o.type === ITEM_TYPES.LOGIC_GATE_NOT).length).toBe(4);
+    expect(manager.getObjects().filter((o) => o.type === ITEM_TYPES.LOGIC_GATE_AND).length).toBe(4);
+  });
+
+  it('is idempotent when re-placing the same type on the same tile (no duplicate)', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createVarManager());
+    const first = manager.setObjectPosition(ITEM_TYPES.LOGIC_LED, 0, 2, 2);
+    const again = manager.setObjectPosition(ITEM_TYPES.LOGIC_LED, 0, 2, 2);
+    expect(again?.id).toBe(first?.id);
+    expect(manager.getObjects().filter((o) => o.type === ITEM_TYPES.LOGIC_LED).length).toBe(1);
+  });
+
+  it('removeObjectById removes only the targeted instance', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createVarManager());
+    manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_OR, 0, 1, 0);
+    const second = manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_OR, 0, 2, 0);
+    manager.removeObjectById(second?.id ?? '');
+    const remaining = manager.getObjects().filter((o) => o.type === ITEM_TYPES.LOGIC_GATE_OR);
+    expect(remaining.length).toBe(1);
+    expect(remaining[0].x).toBe(1);
+  });
+
+  it('configures a specific instance by id', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createVarManager());
+    const a = manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_AND, 0, 1, 0);
+    const b = manager.setObjectPosition(ITEM_TYPES.LOGIC_GATE_AND, 0, 2, 0);
+    const aId = a?.id ?? '';
+    const bId = b?.id ?? '';
+    manager.setGateOutputVariableById(aId, 'var-3');
+    manager.setGateOutputVariableById(bId, 'var-4');
+    expect(manager.getObjects().find((o) => o.id === aId)?.outputVariableId).toBe('var-3');
+    expect(manager.getObjects().find((o) => o.id === bId)?.outputVariableId).toBe('var-4');
+  });
+
+  it('keeps single-instance types at one per room', () => {
+    const manager = new StateObjectManager(createGame(), createWorldManager(), createVarManager());
+    manager.setObjectPosition(ITEM_TYPES.KEY, 0, 1, 0);
+    manager.setObjectPosition(ITEM_TYPES.KEY, 0, 3, 0); // moves the existing key
+    expect(manager.getObjects().filter((o) => o.type === ITEM_TYPES.KEY).length).toBe(1);
+  });
+});

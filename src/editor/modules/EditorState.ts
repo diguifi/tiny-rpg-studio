@@ -23,6 +23,7 @@ class EditorState {
     skillPanelCollapsed: boolean;
     testPanelCollapsed: boolean;
     editingColorIndex: number | null;
+    showVariableLinks: boolean;
 
     constructor() {
         this.selectedTileId = null;
@@ -48,6 +49,7 @@ class EditorState {
         this.skillPanelCollapsed = true;
         this.testPanelCollapsed = true;
         this.editingColorIndex = null;
+        this.showVariableLinks = true;
     }
 }
 

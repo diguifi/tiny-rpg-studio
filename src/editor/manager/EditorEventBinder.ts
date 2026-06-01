@@ -43,6 +43,7 @@ class EditorEventBinder extends EditorManagerModule {
             projectDisableSkills,
             projectBackgroundMusicUrl,
             projectDisablePixelFont,
+            projectShowVariableLinks,
             shareUrlInput
         } = this.dom;
 
@@ -106,6 +107,11 @@ class EditorEventBinder extends EditorManagerModule {
         projectDisablePixelFont?.addEventListener('change', (ev: Event) => {
             const target = ev.target as HTMLInputElement;
             manager.setDisablePixelFont(target.checked);
+        });
+        projectShowVariableLinks?.addEventListener('change', (ev: Event) => {
+            const target = ev.target as HTMLInputElement;
+            manager.state.showVariableLinks = target.checked;
+            manager.renderService.renderEditor();
         });
         shareUrlInput?.addEventListener('focus', () => shareUrlInput.select());
         shareUrlInput?.addEventListener('click', () => shareUrlInput.select());
@@ -251,6 +257,11 @@ class EditorEventBinder extends EditorManagerModule {
             if (!button) return;
             const card = button.closest('.object-card') as HTMLElement | null;
             if (!card) return;
+            const objectId = card.dataset.objectId;
+            if (objectId) {
+                objectService.removeObjectById(objectId);
+                return;
+            }
             const type = card.dataset.type;
             const room = Number(card.dataset.roomIndex);
             if (!type || !Number.isFinite(room)) return;

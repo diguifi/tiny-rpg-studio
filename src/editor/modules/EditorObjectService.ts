@@ -80,6 +80,17 @@ class EditorObjectService {
         this.manager.history.pushCurrentState();
     }
 
+    removeObjectById(id: string) {
+        this.gameEngine.removeObjectById(id);
+        this.manager.renderService.renderObjects();
+        this.manager.renderObjectCatalog();
+        this.manager.renderService.renderWorldGrid();
+        this.manager.renderService.renderEditor();
+        this.manager.gameEngine.draw();
+        this.manager.updateJSON();
+        this.manager.history.pushCurrentState();
+    }
+
     selectObjectType(type: string | null) {
         const normalized = this.normalizeType(type);
         if (!normalized) return;

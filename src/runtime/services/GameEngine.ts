@@ -283,6 +283,7 @@ export class GameEngine {
     }
     this.backgroundMusicEngine.syncFromGame(game);
     this.syncDocumentTitle();
+    this.gameState.recomputeLogicGates();
     this.startEnemyLoop();
     this.dialogManager.reset();
     this.renderer.draw();
@@ -529,6 +530,46 @@ export class GameEngine {
     return updated;
   }
 
+  setGateInputVariable(type: string, roomIndex: number, variableId: string | null, slot: 1 | 2): string | null {
+    const result = this.gameState.setGateInputVariable(type, roomIndex, variableId, slot);
+    this.gameState.recomputeLogicGates();
+    this.renderer.draw();
+    return result;
+  }
+
+  setGateOutputVariable(type: string, roomIndex: number, variableId: string | null): string | null {
+    const result = this.gameState.setGateOutputVariable(type, roomIndex, variableId);
+    this.gameState.recomputeLogicGates();
+    this.renderer.draw();
+    return result;
+  }
+
+  setObjectVariableById(id: string, variableId: string | null): string | null {
+    const result = this.gameState.setObjectVariableById(id, variableId);
+    this.renderer.draw();
+    return result;
+  }
+
+  setGateInputVariableById(id: string, variableId: string | null, slot: 1 | 2): string | null {
+    const result = this.gameState.setGateInputVariableById(id, variableId, slot);
+    this.gameState.recomputeLogicGates();
+    this.renderer.draw();
+    return result;
+  }
+
+  setGateOutputVariableById(id: string, variableId: string | null): string | null {
+    const result = this.gameState.setGateOutputVariableById(id, variableId);
+    this.gameState.recomputeLogicGates();
+    this.renderer.draw();
+    return result;
+  }
+
+  setObjectHiddenInGameById(id: string, hidden: boolean): boolean {
+    const result = this.gameState.setObjectHiddenInGameById(id, hidden);
+    this.renderer.draw();
+    return result;
+  }
+
   setPlayerEndText(roomIndex: number, text: string): string {
     const normalized = this.gameState.setPlayerEndText(roomIndex, text);
     this.renderer.draw();
@@ -541,6 +582,11 @@ export class GameEngine {
 
   removeObject(type: string, roomIndex: number): void {
     this.gameState.removeObject(type, roomIndex);
+    this.renderer.draw();
+  }
+
+  removeObjectById(id: string): void {
+    this.gameState.removeObjectById(id);
     this.renderer.draw();
   }
 

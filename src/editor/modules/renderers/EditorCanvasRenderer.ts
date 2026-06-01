@@ -2,7 +2,17 @@
 import { EditorRendererBase } from './EditorRendererBase';
 import { ITEM_TYPES } from '../../../runtime/domain/constants/itemTypes';
 
-type CanvasObject = { type: string; roomIndex: number; x: number; y: number; variableId?: string | null };
+type CanvasObject = {
+    type: string;
+    roomIndex: number;
+    x: number;
+    y: number;
+    variableId?: string | null;
+    isLogicGate?: boolean;
+    inputVariableId?: string | null;
+    inputVariableId2?: string | null;
+    outputVariableId?: string | null;
+};
 type CanvasNpc = {
     type: string;
     roomIndex: number;
@@ -65,6 +75,7 @@ class EditorCanvasRenderer extends EditorRendererBase {
             ctx.stroke();
         }
 
+        this.drawVariableConnections(tileSize);
         this.drawEntities(tileSize);
     }
 
@@ -90,7 +101,13 @@ class EditorCanvasRenderer extends EditorRendererBase {
                 );
             }
             // Draw variable indicator outline
-            if (object.variableId) {
+            if (object.isLogicGate) {
+                const gateVariableIds = [object.inputVariableId, object.inputVariableId2, object.outputVariableId]
+                    .filter((id): id is string => Boolean(id));
+                if (gateVariableIds.length > 0) {
+                    this.drawVariableOutline(ctx, object.x * tileSize, object.y * tileSize, tileSize, gateVariableIds);
+                }
+            } else if (object.variableId) {
                 this.drawVariableOutline(ctx, object.x * tileSize, object.y * tileSize, tileSize, [object.variableId]);
             }
         }
@@ -137,6 +154,102 @@ class EditorCanvasRenderer extends EditorRendererBase {
                 this.drawVariableOutline(ctx, enemy.x * tileSize, enemy.y * tileSize, tileSize, [enemy.defeatVariableId]);
             }
         }
+    }
+
+    /**
+     * Editor-only aid: draws a colored line between every pair of entities (objects,
+     * NPCs, enemies) in the current room that reference the same variable. The line
+     * uses the variable's color and is trimmed to the tile borders so it does not
+     * cover the sprites. Helps visualize the "wiring" (e.g. switch → logic gate).
+     */
+    drawVariableConnections(tileSize: number): void {
+        const ctx = this.manager.ectx;
+        if (!ctx) return;
+        if (this.state.showVariableLinks === false) return;
+        const roomIndex = this.state.activeRoomIndex;
+        const center = (x: number, y: number) => ({
+            cx: x * tileSize + tileSize / 2,
+            cy: y * tileSize + tileSize / 2
+        });
+
+        // Group tile centers by the variable id they reference
+        const byVariable = new Map<string, Array<{ cx: number; cy: number }>>();
+        const add = (variableId: string | null | undefined, x: number, y: number) => {
+            if (typeof variableId !== 'string' || !variableId) return;
+            const list = byVariable.get(variableId) ?? [];
+            list.push(center(x, y));
+            byVariable.set(variableId, list);
+        };
+
+        const objects = (this.gameEngine.getObjectsForRoom(roomIndex) || []) as CanvasObject[];
+        for (const object of objects) {
+            if (object.isLogicGate) {
+                add(object.inputVariableId, object.x, object.y);
+                add(object.inputVariableId2, object.x, object.y);
+                add(object.outputVariableId, object.x, object.y);
+            } else {
+                add(object.variableId, object.x, object.y);
+            }
+        }
+        const npcs = (this.gameEngine.getSprites() as CanvasNpc[]).filter(
+            (npc) => npc.roomIndex === roomIndex && npc.placed
+        );
+        for (const npc of npcs) {
+            add(npc.conditionVariableId, npc.x, npc.y);
+            add(npc.rewardVariableId, npc.x, npc.y);
+            add(npc.conditionalRewardVariableId, npc.x, npc.y);
+        }
+        const enemies = (this.gameEngine.getActiveEnemies() as CanvasEnemy[]).filter(
+            (enemy) => enemy.roomIndex === roomIndex
+        );
+        for (const enemy of enemies) {
+            add(enemy.defeatVariableId, enemy.x, enemy.y);
+        }
+
+        const half = tileSize / 2;
+        ctx.save();
+        ctx.lineCap = 'round';
+        for (const [variableId, points] of byVariable) {
+            if (points.length < 2) continue;
+            const color = this.getVariableColor(variableId);
+            if (!color) continue;
+            for (let i = 0; i < points.length; i++) {
+                for (let j = i + 1; j < points.length; j++) {
+                    const a = points[i];
+                    const b = points[j];
+                    const dx = b.cx - a.cx;
+                    const dy = b.cy - a.cy;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist === 0) continue; // same tile → skip
+                    const ux = dx / dist;
+                    const uy = dy / dist;
+                    // Exact distance from a tile center to its square border along (ux, uy)
+                    const border = half / Math.max(Math.abs(ux), Math.abs(uy));
+                    if (dist <= border * 2) continue; // tiles touch/overlap → no visible segment
+                    const x1 = a.cx + ux * border;
+                    const y1 = a.cy + uy * border;
+                    const x2 = b.cx - ux * border;
+                    const y2 = b.cy - uy * border;
+                    // Subtle dark underlay for contrast on any background
+                    ctx.globalAlpha = 0.2;
+                    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                    // Colored connection line (kept faint for a cleaner view)
+                    ctx.globalAlpha = 0.4;
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                }
+            }
+        }
+        ctx.restore();
     }
 
     getVariableColor(variableId: string): string | null {

@@ -136,6 +136,22 @@ class ItemCatalog {
         return this.hasTag(type, 'player-end');
     }
 
+    isLogicGate(type: ItemType): boolean {
+        return this.hasTag(type, 'logic-gate');
+    }
+
+    isSingleInputGate(type: ItemType): boolean {
+        return this.hasTag(type, 'single-input');
+    }
+
+    isLed(type: ItemType): boolean {
+        return this.hasTag(type, 'led');
+    }
+
+    allowsMultiplePerRoom(type: ItemType): boolean {
+        return this.isLogicGate(type) || this.isLed(type) || this.isSwitch(type);
+    }
+
     getSwordDurability(type: ItemType): number | null {
         const behavior = this.getBehaviorMap().get(type);
         if (!behavior) return null;

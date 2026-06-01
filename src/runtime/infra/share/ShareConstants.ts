@@ -35,10 +35,12 @@ class ShareConstants {
     static get VERSION_26() { return 26; }
     static get VERSION_27() { return 27; }
     static get VERSION_28() { return 28; }
-    
+    static get VERSION_29() { return 29; }
+    static get VERSION_30() { return 30; }
+
 
     static get VERSION() {
-        return ShareConstants.VERSION_28;
+        return ShareConstants.VERSION_30;
     }
 
     static get LEGACY_VERSION() {
@@ -127,6 +129,14 @@ class ShareConstants {
 
     static get BACKGROUND_MUSIC_VERSION() {
         return ShareConstants.VERSION_28;
+    }
+
+    static get LOGIC_GATES_VERSION() {
+        return ShareConstants.VERSION_29;
+    }
+
+    static get MULTI_INSTANCE_VERSION() {
+        return ShareConstants.VERSION_30;
     }
 
     static get MATRIX_SIZE() {
@@ -227,7 +237,9 @@ class ShareConstants {
                 ShareConstants.VERSION_25,
                 ShareConstants.VERSION_26,
                 ShareConstants.VERSION_27,
-                ShareConstants.VERSION_28
+                ShareConstants.VERSION_28,
+                ShareConstants.VERSION_29,
+                ShareConstants.VERSION_30
             ]);
         }
         return this._supportedVersions;

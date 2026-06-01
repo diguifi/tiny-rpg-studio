@@ -71,6 +71,51 @@ describe('GameState - Critical Path Tests', () => {
     });
   });
 
+  describe('Logic gate integration', () => {
+    it('evaluates a chained gate network from a single setVariableValue without recursion', () => {
+      const state = new GameState();
+      // NOT(var-1) -> var-2 ; AND(var-2, var-3) -> var-4
+      state.game.objects = [
+        { id: 'logic-gate-not-0', type: 'logic-gate-not', x: 1, y: 1, roomIndex: 0, inputVariableId: 'var-1', outputVariableId: 'var-2' },
+        { id: 'logic-gate-and-0', type: 'logic-gate-and', x: 2, y: 2, roomIndex: 0, inputVariableId: 'var-2', inputVariableId2: 'var-3', outputVariableId: 'var-4' },
+      ];
+
+      const setSpy = vi.spyOn(state, 'setVariableValue');
+      // var-1 is false by default → NOT makes var-2 true; setting var-3 true cascades into var-4
+      state.setVariableValue('var-3', true);
+
+      // The public setVariableValue must be called exactly once (no recursion through the hook)
+      expect(setSpy).toHaveBeenCalledTimes(1);
+      expect(state.isVariableOn('var-2')).toBe(true);
+      expect(state.isVariableOn('var-4')).toBe(true);
+    });
+
+    it('opens a variable-door driven by a gate output', () => {
+      const state = new GameState();
+      state.game.objects = [
+        { id: 'logic-gate-and-0', type: 'logic-gate-and', x: 1, y: 1, roomIndex: 0, inputVariableId: 'var-1', inputVariableId2: 'var-2', outputVariableId: 'var-3' },
+        { id: 'door-1', type: 'door-variable', x: 3, y: 3, roomIndex: 0, variableId: 'var-3' },
+      ];
+
+      state.setVariableValue('var-1', true);
+      const [, openedDoor] = state.setVariableValue('var-2', true);
+
+      expect(state.isVariableOn('var-3')).toBe(true);
+      expect(openedDoor).toBe(true);
+    });
+
+    it('terminates without throwing on a cyclic gate network', () => {
+      const state = new GameState();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      state.game.objects = [
+        { id: 'logic-gate-not-0', type: 'logic-gate-not', x: 1, y: 1, roomIndex: 0, inputVariableId: 'var-1', outputVariableId: 'var-1' },
+      ];
+
+      expect(() => state.setVariableValue('var-2', true)).not.toThrow();
+      expect(warn).toHaveBeenCalled();
+    });
+  });
+
   describe('Level-up flow', () => {
     it('triggers celebration and queues skill choices on level-up', () => {
       const state = new GameState();

@@ -62,6 +62,7 @@ class EditorDomCache {
     projectDisableSkills: HTMLInputElement | null;
     projectBackgroundMusicUrl: HTMLInputElement | null;
     projectDisablePixelFont: HTMLInputElement | null;
+    projectShowVariableLinks: HTMLInputElement | null;
     colorPickerModal: HTMLElement | null;
     colorPickerInput: HTMLInputElement | null;
     colorPickerConfirm: HTMLButtonElement | null;
@@ -156,6 +157,7 @@ class EditorDomCache {
             this.projectDisableSkills = null;
             this.projectBackgroundMusicUrl = null;
             this.projectDisablePixelFont = null;
+            this.projectShowVariableLinks = null;
             this.colorPickerModal = null;
             this.colorPickerInput = null;
             this.colorPickerConfirm = null;
@@ -239,6 +241,7 @@ class EditorDomCache {
         this.projectDisableSkills = root.querySelector('#project-disable-skills') as HTMLInputElement | null;
         this.projectBackgroundMusicUrl = root.querySelector('#project-background-music-url') as HTMLInputElement | null;
         this.projectDisablePixelFont = root.querySelector('#project-disable-pixel-font') as HTMLInputElement | null;
+        this.projectShowVariableLinks = root.querySelector('#project-show-variable-links') as HTMLInputElement | null;
         this.colorPickerModal = root.querySelector('#color-picker-modal') as HTMLElement | null;
         this.colorPickerInput = root.querySelector('#color-picker-input') as HTMLInputElement | null;
         this.colorPickerConfirm = root.querySelector('#color-picker-confirm') as HTMLButtonElement | null;

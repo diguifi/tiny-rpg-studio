@@ -115,6 +115,8 @@ class RendererEntityRenderer {
         for (const object of objects) {
             if (object.roomIndex !== player.roomIndex) continue;
             if (object.hiddenInRuntime) continue;
+            // Per-instance visibility toggle (e.g. logic gates hidden in-game but shown in editor)
+            if (object.hiddenInGame) continue;
 
             if (object.hideWhenCollected && object.collected) continue;
 
@@ -129,6 +131,12 @@ class RendererEntityRenderer {
             let sprite = objectSprites[object.type];
             if (object.type === OT.SWITCH && object.on) {
                 sprite = objectSprites[`${object.type}--on`] || sprite;
+            }
+            if (object.isLed) {
+                const isOn = object.variableId
+                    ? this.gameState.isVariableOn?.(object.variableId) ?? false
+                    : false;
+                sprite = (isOn ? objectSprites[`${object.type}--on`] : objectSprites[object.type]) || sprite;
             }
             if (!sprite) continue;
             const px = object.x * tileSize;
@@ -532,6 +540,8 @@ type GameObjectState = {
     hideWhenOpened?: boolean;
     hideWhenVariableOpen?: boolean;
     isCollectible?: boolean;
+    isLed?: boolean;
+    hiddenInGame?: boolean;
 };
 
 type ItemState = {

@@ -340,6 +340,24 @@ class ShareDecoder {
         const switchStateNibbles = version >= ShareConstants.SWITCH_VERSION
             ? ShareVariableCodec.decodeVariableNibbleArray(payload.L || '', switchPositions.length)
             : [];
+        const gateTypeMap = [
+            OT.LOGIC_GATE_NOT, OT.LOGIC_GATE_AND, OT.LOGIC_GATE_OR,
+            OT.LOGIC_GATE_NAND, OT.LOGIC_GATE_NOR
+        ];
+        const gatePositions = version >= ShareConstants.LOGIC_GATES_VERSION
+            ? SharePositionCodec.decodePositions(payload.X || '')
+            : [];
+        const gateTypeNibbles = version >= ShareConstants.LOGIC_GATES_VERSION
+            ? ShareVariableCodec.decodeVariableNibbleArray(payload.N || '', gatePositions.length)
+            : [];
+        const gateInputA = ShareVariableCodec.decodeVariableNibbleArray(payload.Y || '', gatePositions.length);
+        const gateInputB = ShareVariableCodec.decodeVariableNibbleArray(payload.Z || '', gatePositions.length);
+        const gateOutput = ShareVariableCodec.decodeVariableNibbleArray(payload.G || '', gatePositions.length);
+        const gateHidden = ShareVariableCodec.decodeVariableNibbleArray(payload.V || '', gatePositions.length);
+        const ledPositions = version >= ShareConstants.LOGIC_GATES_VERSION
+            ? SharePositionCodec.decodePositions(payload.I || '')
+            : [];
+        const ledVarNibbles = ShareVariableCodec.decodeVariableNibbleArray(payload.U || '', ledPositions.length);
         const title = (ShareTextCodec.decodeText(payload.n, ShareConstants.DEFAULT_TITLE) || ShareConstants.DEFAULT_TITLE).slice(0, 18);
         const author = (ShareTextCodec.decodeText(payload.y, '') || '').slice(0, 18);
         const backgroundMusicVideoId = version >= ShareConstants.BACKGROUND_MUSIC_VERSION
@@ -439,6 +457,31 @@ class ShareDecoder {
             { endingTexts: playerEndMessages }
         );
 
+        const gateEntries = gatePositions.map((pos, idx) => {
+            const typeNibble = gateTypeNibbles[idx] ?? 0;
+            const type = gateTypeMap[typeNibble - 1] ?? OT.LOGIC_GATE_AND;
+            return {
+                id: `${type}-${pos.roomIndex}-${pos.x}-${pos.y}`,
+                type,
+                roomIndex: pos.roomIndex,
+                x: pos.x,
+                y: pos.y,
+                inputVariableId: ShareVariableCodec.nibbleToVariableId(gateInputA[idx] ?? 0),
+                inputVariableId2: ShareVariableCodec.nibbleToVariableId(gateInputB[idx] ?? 0),
+                outputVariableId: ShareVariableCodec.nibbleToVariableId(gateOutput[idx] ?? 0),
+                hiddenInGame: (gateHidden[idx] ?? 0) === 1
+            };
+        });
+
+        const ledEntries = ledPositions.map((pos, idx) => ({
+            id: `${OT.LOGIC_LED}-${pos.roomIndex}-${pos.x}-${pos.y}`,
+            type: OT.LOGIC_LED,
+            roomIndex: pos.roomIndex,
+            x: pos.x,
+            y: pos.y,
+            variableId: ShareVariableCodec.nibbleToVariableId(ledVarNibbles[idx] ?? 0)
+        }));
+
         const objects = [
             ...ShareDataNormalizer.buildObjectEntries(doorPositions, OT.DOOR),
             ...ShareDataNormalizer.buildObjectEntries(keyPositions, OT.KEY),
@@ -449,7 +492,9 @@ class ShareDecoder {
             ...ShareDataNormalizer.buildObjectEntries(swordBronzePositions, OT.SWORD_BRONZE),
             ...ShareDataNormalizer.buildObjectEntries(swordWoodPositions, OT.SWORD_WOOD),
             ...playerEndEntries,
-            ...ShareDataNormalizer.buildObjectEntries(switchPositions, OT.SWITCH, { variableNibbles: switchVariableNibbles, stateBits: switchStateNibbles })
+            ...ShareDataNormalizer.buildObjectEntries(switchPositions, OT.SWITCH, { variableNibbles: switchVariableNibbles, stateBits: switchStateNibbles }),
+            ...gateEntries,
+            ...ledEntries
         ];
 
         // Custom Palette

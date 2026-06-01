@@ -274,6 +274,8 @@ class ShareEncoder {
             roomIndex: entry.roomIndex
         }));
         const magicDoorVariableNibbles = magicDoorEntries.map((entry) => toNibble(entry.variableNibble));
+        const gateEntries = ShareDataNormalizer.normalizeLogicGateObjects(objects);
+        const ledEntries = ShareDataNormalizer.normalizeLedObjects(objects);
         const variables = Array.isArray(gameData?.variables) ? gameData.variables : [];
         const variableCode = ShareVariableCodec.encodeVariables(variables as Parameters<typeof ShareVariableCodec.encodeVariables>[0]);
 
@@ -432,6 +434,34 @@ class ShareEncoder {
                 if (switchStateCode) {
                     parts.push('L' + switchStateCode);
                 }
+            }
+        }
+
+        if (gateEntries.length) {
+            const positions = gateEntries.map((entry) => ({ x: entry.x, y: entry.y, roomIndex: entry.roomIndex }));
+            const posCode = SharePositionCodec.encodePositions(positions);
+            if (posCode) {
+                parts.push('X' + posCode);
+                parts.push('N' + ShareVariableCodec.encodeVariableNibbleArray(gateEntries.map((entry) => entry.typeNibble)));
+                const inputACode = ShareVariableCodec.encodeVariableNibbleArray(gateEntries.map((entry) => entry.inputANibble));
+                if (inputACode) parts.push('Y' + inputACode);
+                const inputBCode = ShareVariableCodec.encodeVariableNibbleArray(gateEntries.map((entry) => entry.inputBNibble));
+                if (inputBCode) parts.push('Z' + inputBCode);
+                const outputCode = ShareVariableCodec.encodeVariableNibbleArray(gateEntries.map((entry) => entry.outputNibble));
+                if (outputCode) parts.push('G' + outputCode);
+                // Hidden-in-game flag per gate (1 = hidden); omitted when all gates are visible
+                const hiddenCode = ShareVariableCodec.encodeVariableNibbleArray(gateEntries.map((entry) => entry.hiddenNibble));
+                if (hiddenCode) parts.push('V' + hiddenCode);
+            }
+        }
+
+        if (ledEntries.length) {
+            const positions = ledEntries.map((entry) => ({ x: entry.x, y: entry.y, roomIndex: entry.roomIndex }));
+            const posCode = SharePositionCodec.encodePositions(positions);
+            if (posCode) {
+                parts.push('I' + posCode);
+                const ledVarCode = ShareVariableCodec.encodeVariableNibbleArray(ledEntries.map((entry) => entry.variableNibble));
+                if (ledVarCode) parts.push('U' + ledVarCode);
             }
         }
 

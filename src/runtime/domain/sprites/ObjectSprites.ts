@@ -120,6 +120,83 @@ const ObjectSpriteMatrices: Record<string, SpriteMatrix> = {
         [ null, null, null,  4,  9,  1,  1, null ],
         [ null, null, null, null,  1,  1, null, null ],
         [ null, null, null,  1,  1, null,  1, null ]
+    ],
+    // NOT gate: triangle pointing right with a negation bubble at the tip
+    'logic-gate-not': [
+        [ null, null, null, null, null, null, null, null ],
+        [ null,  6,  6, null, null, null, null, null ],
+        [ null,  6,  6,  6,  6, null, null, null ],
+        [ null,  6,  6,  6,  6,  6,  6,  7 ],
+        [ null,  6,  6,  6,  6,  6,  6,  7 ],
+        [ null,  6,  6,  6,  6, null, null, null ],
+        [ null,  6,  6, null, null, null, null, null ],
+        [ null, null, null, null, null, null, null, null ]
+    ],
+    // AND gate: flat left edge, rounded right (D shape)
+    'logic-gate-and': [
+        [ null, null, null, null, null, null, null, null ],
+        [ null,  6,  6,  6,  6,  6, null, null ],
+        [ null,  6,  6,  6,  6,  6,  6, null ],
+        [ null,  6,  6,  6,  6,  6,  6, null ],
+        [ null,  6,  6,  6,  6,  6,  6, null ],
+        [ null,  6,  6,  6,  6,  6,  6, null ],
+        [ null,  6,  6,  6,  6,  6, null, null ],
+        [ null, null, null, null, null, null, null, null ]
+    ],
+    // OR gate: concave left edge, pointed right
+    'logic-gate-or': [
+        [ null, null, null, null, null, null, null, null ],
+        [ null,  6,  6,  6, null, null, null, null ],
+        [ null, null,  6,  6,  6,  6, null, null ],
+        [ null, null,  6,  6,  6,  6,  6, null ],
+        [ null, null,  6,  6,  6,  6,  6, null ],
+        [ null, null,  6,  6,  6,  6, null, null ],
+        [ null,  6,  6,  6, null, null, null, null ],
+        [ null, null, null, null, null, null, null, null ]
+    ],
+    // NAND gate: AND body with a negation bubble at the output
+    'logic-gate-nand': [
+        [ null, null, null, null, null, null, null, null ],
+        [ null,  6,  6,  6,  6,  6, null, null ],
+        [ null,  6,  6,  6,  6,  6,  6, null ],
+        [ null,  6,  6,  6,  6,  6,  6,  7 ],
+        [ null,  6,  6,  6,  6,  6,  6,  7 ],
+        [ null,  6,  6,  6,  6,  6,  6, null ],
+        [ null,  6,  6,  6,  6,  6, null, null ],
+        [ null, null, null, null, null, null, null, null ]
+    ],
+    // NOR gate: OR body with a negation bubble at the output
+    'logic-gate-nor': [
+        [ null, null, null, null, null, null, null, null ],
+        [ null,  6,  6,  6, null, null, null, null ],
+        [ null, null,  6,  6,  6,  6, null, null ],
+        [ null, null,  6,  6,  6,  6,  6,  7 ],
+        [ null, null,  6,  6,  6,  6,  6,  7 ],
+        [ null, null,  6,  6,  6,  6, null, null ],
+        [ null,  6,  6,  6, null, null, null, null ],
+        [ null, null, null, null, null, null, null, null ]
+    ],
+    // LED off: dark grey circle
+    'logic-led': [
+        [ null, null, null, null, null, null, null, null ],
+        [ null, null,  5,  5,  5,  5, null, null ],
+        [ null,  5,  5,  5,  5,  5,  5, null ],
+        [ null,  5,  5,  5,  5,  5,  5, null ],
+        [ null,  5,  5,  5,  5,  5,  5, null ],
+        [ null,  5,  5,  5,  5,  5,  5, null ],
+        [ null, null,  5,  5,  5,  5, null, null ],
+        [ null, null, null, null, null, null, null, null ]
+    ],
+    // LED on: bright yellow circle with light glow border
+    'logic-led--on': [
+        [ null, null, null, null, null, null, null, null ],
+        [ null, null,  7, 10, 10,  7, null, null ],
+        [ null,  7, 10, 10, 10, 10,  7, null ],
+        [ null,  7, 10, 10, 10, 10,  7, null ],
+        [ null,  7, 10, 10, 10, 10,  7, null ],
+        [ null,  7, 10, 10, 10, 10,  7, null ],
+        [ null, null,  7, 10, 10,  7, null, null ],
+        [ null, null, null, null, null, null, null, null ]
     ]
 };
 

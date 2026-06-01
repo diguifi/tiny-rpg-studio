@@ -14,6 +14,10 @@ type RawObjectInput = {
     opened?: boolean;
     on?: boolean;
     endingText?: string;
+    inputVariableId?: string | null;
+    inputVariableId2?: string | null;
+    outputVariableId?: string | null;
+    hiddenInGame?: boolean;
 };
 
 type ObjectEntry = {
@@ -36,6 +40,13 @@ type ObjectEntry = {
     hideWhenVariableOpen?: boolean;
     requiresVariable?: boolean;
     swordDurability?: number | null;
+    inputVariableId?: string | null;
+    inputVariableId2?: string | null;
+    outputVariableId?: string | null;
+    isLogicGate?: boolean;
+    isSingleInputGate?: boolean;
+    isLed?: boolean;
+    hiddenInGame?: boolean;
 } & Record<string, unknown>;
 
 type WorldManagerApi = {
@@ -80,6 +91,10 @@ class StateObjectManager {
 
     static get COLLECTIBLE_OBJECT_TYPES() {
         return this.getCollectibleTypeSet();
+    }
+
+    static get MULTI_INSTANCE_LIMIT() {
+        return 4;
     }
 
     static get PLAYER_END_TEXT_LIMIT() {
@@ -135,7 +150,7 @@ class StateObjectManager {
         const allowedTypes = StateObjectManager.getPlaceableTypeSet();
         let playerStartIncluded = false;
         const playerEndRooms = new Set();
-        return objects
+        const normalized = objects
             .map((object) => {
                 const raw = object as RawObjectInput;
                 const sourceType = typeof raw.type === 'string' ? raw.type : null;
@@ -154,9 +169,13 @@ class StateObjectManager {
                 const x = this.worldManager.clampCoordinate(raw.x ?? 0);
                 const y = this.worldManager.clampCoordinate(raw.y ?? 0);
                 const rawId = raw.id;
-                const id = typeof rawId === 'string' && rawId.trim()
-                    ? rawId.trim()
-                    : this.generateObjectId(type, roomIndex);
+                // Multi-instance types always use a positional id (collision-free per tile).
+                // Single-instance types preserve the raw id when present.
+                const id = itemCatalog.allowsMultiplePerRoom(type)
+                    ? this.generateObjectId(type, roomIndex, x, y)
+                    : (typeof rawId === 'string' && rawId.trim()
+                        ? rawId.trim()
+                        : this.generateObjectId(type, roomIndex));
                 const fallbackVariableId = this.variableManager?.getFirstVariableId?.() ?? null;
                 const needsVariable = itemCatalog.requiresVariable(type);
                 const normalizedVariable = needsVariable
@@ -179,9 +198,45 @@ class StateObjectManager {
                 if (type === StateObjectManager.PLAYER_END_TYPE) {
                     base.endingText = this.normalizePlayerEndText(raw.endingText);
                 }
+                if (itemCatalog.isLogicGate(type)) {
+                    base.inputVariableId = this.variableManager?.normalizeVariableId?.(raw.inputVariableId ?? null) ?? null;
+                    base.inputVariableId2 = this.variableManager?.normalizeVariableId?.(raw.inputVariableId2 ?? null) ?? null;
+                    base.outputVariableId = this.variableManager?.normalizeVariableId?.(raw.outputVariableId ?? null) ?? null;
+                    base.hiddenInGame = Boolean(raw.hiddenInGame);
+                }
                 return this.applyObjectBehavior(base);
             })
             .filter((entry): entry is ObjectEntry => Boolean(entry));
+
+        // De-dup tile + cap per type+room for multi-instance objects (discard stacked/over-limit)
+        const seenTiles = new Set<string>();
+        const perTypeRoomCount = new Map<string, number>();
+        const result: ObjectEntry[] = [];
+        for (const entry of normalized) {
+            if (itemCatalog.allowsMultiplePerRoom(entry.type)) {
+                const tileKey = `${entry.type}:${entry.roomIndex}:${entry.x}:${entry.y}`;
+                if (seenTiles.has(tileKey)) continue;
+                const countKey = `${entry.type}:${entry.roomIndex}`;
+                const count = perTypeRoomCount.get(countKey) ?? 0;
+                if (count >= StateObjectManager.MULTI_INSTANCE_LIMIT) continue;
+                seenTiles.add(tileKey);
+                perTypeRoomCount.set(countKey, count + 1);
+            }
+            result.push(entry);
+        }
+
+        // First-wins: discard duplicate logic gate outputs to keep evaluation deterministic
+        const usedOutputs = new Set<string>();
+        for (const entry of result) {
+            if (entry.isLogicGate && entry.outputVariableId) {
+                if (usedOutputs.has(entry.outputVariableId)) {
+                    entry.outputVariableId = null;
+                } else {
+                    usedOutputs.add(entry.outputVariableId);
+                }
+            }
+        }
+        return result;
     }
 
     normalizePlayerEndText(value: unknown): string {
@@ -208,9 +263,12 @@ class StateObjectManager {
         this.ensurePlayerStartObject();
     }
 
-    generateObjectId(type: ItemType, roomIndex: number) {
+    generateObjectId(type: ItemType, roomIndex: number, x?: number, y?: number) {
         if (type === StateObjectManager.PLAYER_START_TYPE) {
             return StateObjectManager.PLAYER_START_TYPE;
+        }
+        if (itemCatalog.allowsMultiplePerRoom(type) && typeof x === 'number' && typeof y === 'number') {
+            return `${type}-${roomIndex}-${x}-${y}`;
         }
         return `${type}-${roomIndex}`;
     }
@@ -251,9 +309,25 @@ class StateObjectManager {
         const cx = this.worldManager.clampCoordinate(x);
         const cy = this.worldManager.clampCoordinate(y);
         const objects = this.getObjects();
+        const multi = itemCatalog.allowsMultiplePerRoom(normalizedType);
         let entry: ObjectEntry | null = null;
         if (normalizedType === StateObjectManager.PLAYER_START_TYPE) {
             entry = objects.find((object) => object.type === normalizedType) || null;
+        } else if (multi) {
+            // Reuse if an instance already sits on this exact tile (idempotent re-place)
+            entry = objects.find((object) =>
+                object.type === normalizedType && object.roomIndex === targetRoom &&
+                object.x === cx && object.y === cy
+            ) || null;
+            if (!entry) {
+                const count = objects.filter((object) =>
+                    object.type === normalizedType && object.roomIndex === targetRoom
+                ).length;
+                if (count >= StateObjectManager.MULTI_INSTANCE_LIMIT) return null;
+                // Note: same-type/same-tile is handled by the reuse branch above; cross-type
+                // stacking stays allowed (legacy behavior). Positional ids include the type,
+                // so they remain unique.
+            }
         } else {
             entry = objects.find((object) =>
                 object.type === normalizedType && object.roomIndex === targetRoom
@@ -261,7 +335,7 @@ class StateObjectManager {
         }
         if (!entry) {
             entry = {
-                id: this.generateObjectId(normalizedType, targetRoom),
+                id: this.generateObjectId(normalizedType, targetRoom, cx, cy),
                 type: normalizedType,
                 roomIndex: targetRoom,
                 x: cx,
@@ -300,6 +374,15 @@ class StateObjectManager {
         if (normalizedType === StateObjectManager.PLAYER_END_TYPE) {
             entry.endingText = this.normalizePlayerEndText(entry.endingText);
         }
+        if (itemCatalog.isLogicGate(normalizedType)) {
+            entry.inputVariableId = entry.inputVariableId ?? null;
+            entry.inputVariableId2 = entry.inputVariableId2 ?? null;
+            entry.outputVariableId = entry.outputVariableId ?? null;
+        }
+        if (itemCatalog.isLed(normalizedType)) {
+            const fallbackVariableId = this.variableManager?.getFirstVariableId?.() ?? null;
+            entry.variableId = this.variableManager?.normalizeVariableId?.(entry.variableId) ?? fallbackVariableId;
+        }
         return this.applyObjectBehavior(entry);
     }
 
@@ -312,6 +395,54 @@ class StateObjectManager {
         this.game.objects = this.getObjects().filter((object) =>
             !(object.type === normalizedType && object.roomIndex === targetRoom)
         );
+    }
+
+    removeObjectById(id: string) {
+        if (!this.game) return;
+        if (id === StateObjectManager.PLAYER_START_TYPE) return; // player-start is protected
+        this.game.objects = this.getObjects().filter((object) => object.id !== id);
+    }
+
+    setObjectVariableById(id: string, variableId: string | null): string | null {
+        const entry = this.getObjects().find((object) => object.id === id);
+        if (!entry || !itemCatalog.requiresVariable(entry.type)) return null;
+        const fallbackVariableId = this.variableManager?.getFirstVariableId?.() ?? null;
+        const normalized = this.variableManager?.normalizeVariableId?.(variableId);
+        entry.variableId = normalized ?? fallbackVariableId;
+        return entry.variableId;
+    }
+
+    setGateInputVariableById(id: string, variableId: string | null, slot: 1 | 2): string | null {
+        const entry = this.getObjects().find((object) => object.id === id);
+        if (!entry || !entry.isLogicGate) return null;
+        const normalized = this.variableManager?.normalizeVariableId?.(variableId) ?? null;
+        if (slot === 1) {
+            entry.inputVariableId = normalized;
+        } else {
+            entry.inputVariableId2 = normalized;
+        }
+        return normalized;
+    }
+
+    setGateOutputVariableById(id: string, variableId: string | null): string | null {
+        const objects = this.getObjects();
+        const entry = objects.find((object) => object.id === id);
+        if (!entry || !entry.isLogicGate) return null;
+        const normalized = this.variableManager?.normalizeVariableId?.(variableId) ?? null;
+        if (normalized && objects.some((obj) =>
+            obj.isLogicGate && obj !== entry && obj.outputVariableId === normalized
+        )) {
+            return entry.outputVariableId ?? null;
+        }
+        entry.outputVariableId = normalized;
+        return normalized;
+    }
+
+    setObjectHiddenInGameById(id: string, hidden: boolean): boolean {
+        const entry = this.getObjects().find((object) => object.id === id);
+        if (!entry) return false;
+        entry.hiddenInGame = Boolean(hidden);
+        return entry.hiddenInGame;
     }
 
     setObjectVariable(type: ItemType, roomIndex: number, variableId: string | null) {
@@ -328,6 +459,44 @@ class StateObjectManager {
         const normalized = this.variableManager?.normalizeVariableId?.(variableId);
         entry.variableId = normalized ?? fallbackVariableId;
         return entry.variableId;
+    }
+
+    isLogicGateOutput(variableId: string | null): boolean {
+        if (!variableId) return false;
+        return this.getObjects().some(
+            (obj) => obj.isLogicGate && obj.outputVariableId === variableId
+        );
+    }
+
+    setGateInputVariable(type: ItemType, roomIndex: number, variableId: string | null, slot: 1 | 2): string | null {
+        if (!this.worldManager) return null;
+        const targetRoom = this.worldManager.clampRoomIndex(roomIndex);
+        const entry = this.getObjects().find((obj) => obj.type === type && obj.roomIndex === targetRoom);
+        if (!entry || !entry.isLogicGate) return null;
+        const normalized = this.variableManager?.normalizeVariableId?.(variableId) ?? null;
+        if (slot === 1) {
+            entry.inputVariableId = normalized;
+        } else {
+            entry.inputVariableId2 = normalized;
+        }
+        return normalized;
+    }
+
+    setGateOutputVariable(type: ItemType, roomIndex: number, variableId: string | null): string | null {
+        if (!this.worldManager) return null;
+        const targetRoom = this.worldManager.clampRoomIndex(roomIndex);
+        const objects = this.getObjects();
+        const entry = objects.find((obj) => obj.type === type && obj.roomIndex === targetRoom);
+        if (!entry || !entry.isLogicGate) return null;
+        const normalized = this.variableManager?.normalizeVariableId?.(variableId) ?? null;
+        // Reject an output already used by another gate (consistent with first-wins rule)
+        if (normalized && objects.some((obj) =>
+            obj.isLogicGate && obj !== entry && obj.outputVariableId === normalized
+        )) {
+            return entry.outputVariableId ?? null;
+        }
+        entry.outputVariableId = normalized;
+        return normalized;
     }
 
     syncSwitchState(variableId: string | null | undefined, value: unknown): boolean {
@@ -421,6 +590,9 @@ class StateObjectManager {
         entry.hideWhenVariableOpen = itemCatalog.shouldHideWhenVariableOpen(type);
         entry.requiresVariable = itemCatalog.requiresVariable(type);
         entry.swordDurability = itemCatalog.getSwordDurability(type);
+        entry.isLogicGate = itemCatalog.isLogicGate(type);
+        entry.isSingleInputGate = itemCatalog.isSingleInputGate(type);
+        entry.isLed = itemCatalog.isLed(type);
         return entry;
     }
 

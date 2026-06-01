@@ -7,6 +7,10 @@ type ItemBehavior = {
     tags?: string[];
     swordDurability?: number;
     swordDamage?: number;
+    // Logic gate input/output variable IDs
+    inputVariableId?: string | null;
+    inputVariableId2?: string | null;
+    outputVariableId?: string | null;
 };
 
 type ItemDefinitionData = {
