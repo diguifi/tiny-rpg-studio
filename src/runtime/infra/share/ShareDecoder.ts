@@ -272,6 +272,13 @@ class ShareDecoder {
             return null;
         }
 
+        // Variable references: byte-encoded from VARIABLES_16_VERSION on (supports 16 vars),
+        // 4-bit nibbles before that. Small enum fields (switch state, gate type, hidden) stay nibbles.
+        const decodeVarRef = (text: string | undefined, count: number): number[] =>
+            version >= ShareConstants.VARIABLES_16_VERSION
+                ? ShareVariableCodec.decodeVariableRefArray(text || '', count)
+                : ShareVariableCodec.decodeVariableNibbleArray(text || '', count);
+
         const roomCount = version >= ShareConstants.VERSION_3 ? ShareConstants.WORLD_ROOM_COUNT : 1;
         const groundMaps = ShareMatrixCodec.decodeWorldGround(payload.g || '', version, roomCount);
         const overlayMaps = ShareMatrixCodec.decodeWorldOverlay(payload.o || '', version, roomCount);
@@ -282,26 +289,26 @@ class ShareDecoder {
         const npcTypeIndexes = SharePositionCodec.decodeNpcTypeIndexes(payload.i || '');
         const npcConditionalTexts = version >= ShareConstants.NPC_VARIABLE_TEXT_VERSION ? ShareTextCodec.decodeTextArray(payload.u || '') : [];
         const npcConditionIndexes = version >= ShareConstants.NPC_VARIABLE_TEXT_VERSION
-            ? ShareVariableCodec.decodeVariableNibbleArray(payload.c || '', npcPositions.length)
+            ? decodeVarRef(payload.c, npcPositions.length)
             : [];
         const npcRewardIndexes = version >= ShareConstants.NPC_VARIABLE_TEXT_VERSION
-            ? ShareVariableCodec.decodeVariableNibbleArray(payload.r || '', npcPositions.length)
+            ? decodeVarRef(payload.r, npcPositions.length)
             : [];
         const npcConditionalRewardIndexes = version >= ShareConstants.NPC_CONDITIONAL_REWARD_VERSION
-            ? ShareVariableCodec.decodeVariableNibbleArray(payload.h || '', npcPositions.length)
+            ? decodeVarRef(payload.h, npcPositions.length)
             : [];
         const enemyPositions = SharePositionCodec.decodePositions(payload.e || '');
         const enemyTypeIndexes = version >= ShareConstants.ENEMY_TYPE_VERSION
             ? SharePositionCodec.decodeEnemyTypeIndexes(payload.f || '', enemyPositions.length)
             : [];
         const enemyVariableNibbles = version >= ShareConstants.ENEMY_VARIABLE_VERSION
-            ? ShareVariableCodec.decodeVariableNibbleArray(payload.w || '', enemyPositions.length)
+            ? decodeVarRef(payload.w, enemyPositions.length)
             : (new Array(enemyPositions.length).fill(0) as number[]);
         const doorPositions = version >= ShareConstants.OBJECTS_VERSION ? SharePositionCodec.decodePositions(payload.d || '') : [];
         const keyPositions = version >= ShareConstants.OBJECTS_VERSION ? SharePositionCodec.decodePositions(payload.k || '') : [];
         const magicDoorPositions = version >= ShareConstants.MAGIC_DOOR_VERSION ? SharePositionCodec.decodePositions(payload.m || '') : [];
         const magicDoorVariableNibbles = version >= ShareConstants.MAGIC_DOOR_VERSION
-            ? ShareVariableCodec.decodeVariableNibbleArray(payload.q || '', magicDoorPositions.length)
+            ? decodeVarRef(payload.q, magicDoorPositions.length)
             : [];
         const lifePotionPositions = version >= ShareConstants.LIFE_POTION_VERSION
             ? SharePositionCodec.decodePositions(payload.l || '')
@@ -335,7 +342,7 @@ class ShareDecoder {
             ? SharePositionCodec.decodePositions(payload.J || '')
             : [];
         const switchVariableNibbles = version >= ShareConstants.SWITCH_VERSION
-            ? ShareVariableCodec.decodeVariableNibbleArray(payload.K || '', switchPositions.length)
+            ? decodeVarRef(payload.K, switchPositions.length)
             : [];
         const switchStateNibbles = version >= ShareConstants.SWITCH_VERSION
             ? ShareVariableCodec.decodeVariableNibbleArray(payload.L || '', switchPositions.length)
@@ -350,14 +357,14 @@ class ShareDecoder {
         const gateTypeNibbles = version >= ShareConstants.LOGIC_GATES_VERSION
             ? ShareVariableCodec.decodeVariableNibbleArray(payload.N || '', gatePositions.length)
             : [];
-        const gateInputA = ShareVariableCodec.decodeVariableNibbleArray(payload.Y || '', gatePositions.length);
-        const gateInputB = ShareVariableCodec.decodeVariableNibbleArray(payload.Z || '', gatePositions.length);
-        const gateOutput = ShareVariableCodec.decodeVariableNibbleArray(payload.G || '', gatePositions.length);
+        const gateInputA = decodeVarRef(payload.Y, gatePositions.length);
+        const gateInputB = decodeVarRef(payload.Z, gatePositions.length);
+        const gateOutput = decodeVarRef(payload.G, gatePositions.length);
         const gateHidden = ShareVariableCodec.decodeVariableNibbleArray(payload.V || '', gatePositions.length);
         const ledPositions = version >= ShareConstants.LOGIC_GATES_VERSION
             ? SharePositionCodec.decodePositions(payload.I || '')
             : [];
-        const ledVarNibbles = ShareVariableCodec.decodeVariableNibbleArray(payload.U || '', ledPositions.length);
+        const ledVarNibbles = decodeVarRef(payload.U, ledPositions.length);
         const title = (ShareTextCodec.decodeText(payload.n, ShareConstants.DEFAULT_TITLE) || ShareConstants.DEFAULT_TITLE).slice(0, 18);
         const author = (ShareTextCodec.decodeText(payload.y, '') || '').slice(0, 18);
         const backgroundMusicVideoId = version >= ShareConstants.BACKGROUND_MUSIC_VERSION

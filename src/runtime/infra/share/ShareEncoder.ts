@@ -321,9 +321,9 @@ class ShareEncoder {
             const hasConditionalTexts = conditionalTexts.some((text) => typeof text === 'string' && text.trim().length);
             const texts = ShareTextCodec.encodeTextArray(spriteTexts);
             const conditionalTextCode = hasConditionalTexts ? ShareTextCodec.encodeTextArray(conditionalTexts) : '';
-            const conditionCode = ShareVariableCodec.encodeVariableNibbleArray(conditionIndexes);
-            const rewardCode = ShareVariableCodec.encodeVariableNibbleArray(rewardIndexes);
-            const conditionalRewardCode = ShareVariableCodec.encodeVariableNibbleArray(conditionalRewardIndexes);
+            const conditionCode = ShareVariableCodec.encodeVariableRefArray(conditionIndexes);
+            const rewardCode = ShareVariableCodec.encodeVariableRefArray(rewardIndexes);
+            const conditionalRewardCode = ShareVariableCodec.encodeVariableRefArray(conditionalRewardIndexes);
             if (positions) parts.push('p' + positions);
             if (typeIndexes) parts.push('i' + typeIndexes);
             if (texts) parts.push('t' + texts);
@@ -337,7 +337,7 @@ class ShareEncoder {
             const enemyPositions = SharePositionCodec.encodePositions(enemies);
             const enemyTypeIndexes = SharePositionCodec.encodeEnemyTypeIndexes(enemies);
             const enemyVariableNibbles = enemies.map((enemy) => toNibble(enemy.variableNibble));
-            const enemyVariableCode = ShareVariableCodec.encodeVariableNibbleArray(enemyVariableNibbles);
+            const enemyVariableCode = ShareVariableCodec.encodeVariableRefArray(enemyVariableNibbles);
             if (enemyPositions) {
                 parts.push('e' + enemyPositions);
             }
@@ -361,7 +361,7 @@ class ShareEncoder {
             if (magicDoorCode) {
                 parts.push('m' + magicDoorCode);
             }
-            const magicDoorVariableCode = ShareVariableCodec.encodeVariableNibbleArray(magicDoorVariableNibbles);
+            const magicDoorVariableCode = ShareVariableCodec.encodeVariableRefArray(magicDoorVariableNibbles);
             if (magicDoorVariableCode) {
                 parts.push('q' + magicDoorVariableCode);
             }
@@ -426,7 +426,7 @@ class ShareEncoder {
             const switchPositionCode = SharePositionCodec.encodePositions(switchPositions);
             if (switchPositionCode) {
                 parts.push('J' + switchPositionCode);
-                const switchVariableCode = ShareVariableCodec.encodeVariableNibbleArray(switchEntries.map((entry) => toNibble(entry.variableNibble)));
+                const switchVariableCode = ShareVariableCodec.encodeVariableRefArray(switchEntries.map((entry) => toNibble(entry.variableNibble)));
                 const switchStateCode = ShareVariableCodec.encodeVariableNibbleArray(switchEntries.map((entry) => toNibble(entry.stateNibble)));
                 if (switchVariableCode) {
                     parts.push('K' + switchVariableCode);
@@ -443,11 +443,11 @@ class ShareEncoder {
             if (posCode) {
                 parts.push('X' + posCode);
                 parts.push('N' + ShareVariableCodec.encodeVariableNibbleArray(gateEntries.map((entry) => entry.typeNibble)));
-                const inputACode = ShareVariableCodec.encodeVariableNibbleArray(gateEntries.map((entry) => entry.inputANibble));
+                const inputACode = ShareVariableCodec.encodeVariableRefArray(gateEntries.map((entry) => entry.inputANibble));
                 if (inputACode) parts.push('Y' + inputACode);
-                const inputBCode = ShareVariableCodec.encodeVariableNibbleArray(gateEntries.map((entry) => entry.inputBNibble));
+                const inputBCode = ShareVariableCodec.encodeVariableRefArray(gateEntries.map((entry) => entry.inputBNibble));
                 if (inputBCode) parts.push('Z' + inputBCode);
-                const outputCode = ShareVariableCodec.encodeVariableNibbleArray(gateEntries.map((entry) => entry.outputNibble));
+                const outputCode = ShareVariableCodec.encodeVariableRefArray(gateEntries.map((entry) => entry.outputNibble));
                 if (outputCode) parts.push('G' + outputCode);
                 // Hidden-in-game flag per gate (1 = hidden); omitted when all gates are visible
                 const hiddenCode = ShareVariableCodec.encodeVariableNibbleArray(gateEntries.map((entry) => entry.hiddenNibble));
@@ -460,7 +460,7 @@ class ShareEncoder {
             const posCode = SharePositionCodec.encodePositions(positions);
             if (posCode) {
                 parts.push('I' + posCode);
-                const ledVarCode = ShareVariableCodec.encodeVariableNibbleArray(ledEntries.map((entry) => entry.variableNibble));
+                const ledVarCode = ShareVariableCodec.encodeVariableRefArray(ledEntries.map((entry) => entry.variableNibble));
                 if (ledVarCode) parts.push('U' + ledVarCode);
             }
         }

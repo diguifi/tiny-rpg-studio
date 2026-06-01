@@ -191,7 +191,7 @@ class EditorNpcService {
 
     populateVariableSelect(selectElement: HTMLSelectElement | null, selectedId = '', options: { includeBardSkill?: boolean } = {}) {
         if (!selectElement) return;
-        const variables = (this.gameEngine.getVariableDefinitions() ?? []) as (VariableDefinition & { name?: string })[];
+        const variables = (this.gameEngine.getVariableDefinitions() ?? []) as (VariableDefinition & { name?: string; color?: string | null })[];
         const includeBardSkill = Boolean(options.includeBardSkill);
         selectElement.innerHTML = '';
 
@@ -207,10 +207,15 @@ class EditorNpcService {
             selectElement.appendChild(bardOption);
         }
 
-        variables.forEach((variable: VariableDefinition & { name?: string }) => {
+        variables.forEach((variable: VariableDefinition & { name?: string; color?: string | null }) => {
             const option = document.createElement('option');
             option.value = variable.id;
             option.textContent = variable.name || variable.id;
+            // Tint the option text with the variable's color (simple, perfectly aligned)
+            const color = typeof variable.color === 'string' && variable.color.trim() ? variable.color.trim() : null;
+            if (color) {
+                option.style.color = color;
+            }
             selectElement.appendChild(option);
         });
 

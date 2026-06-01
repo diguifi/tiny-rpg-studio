@@ -74,6 +74,29 @@ class ShareVariableCodec {
         return values.map((value) => (Number.isFinite(value) ? value : 0));
     }
 
+    // Variable-reference arrays use 1 byte per value (supports up to 255 ids + null=0).
+    // Used from VARIABLES_16_VERSION onwards, since 16 variables (+ skill:bard) exceed the
+    // 0-15 range a 4-bit nibble can hold.
+    static encodeVariableRefArray(values: VariableNibbleInput[] | undefined | null): string {
+        if (!Array.isArray(values) || !values.length) return '';
+        const hasData = values.some((entry) => typeof entry === 'number' && Number.isFinite(entry) && entry > 0);
+        if (!hasData) return '';
+        const bytes = Uint8Array.from(values.map((entry) => Number(entry) & 0xff));
+        return ShareBase64.toBase64Url(bytes);
+    }
+
+    static decodeVariableRefArray(text: string | null | undefined, expectedCount: number): number[] {
+        const safeCount = Number.isFinite(expectedCount) && expectedCount > 0 ? expectedCount : 0;
+        if (!text || !safeCount) return new Array<number>(safeCount).fill(0);
+        const bytes = ShareBase64.fromBase64Url(text);
+        const values: number[] = new Array<number>(safeCount);
+        for (let i = 0; i < safeCount; i++) {
+            const value = bytes[i] ?? 0;
+            values[i] = Number.isFinite(value) ? value : 0;
+        }
+        return values;
+    }
+
     static buildVariableEntries(states: unknown[] | undefined | null): VariableEntry[] {
         const ids = ShareConstants.VARIABLE_IDS;
         const names = ShareConstants.VARIABLE_NAMES;

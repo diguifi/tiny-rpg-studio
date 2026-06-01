@@ -37,10 +37,11 @@ class ShareConstants {
     static get VERSION_28() { return 28; }
     static get VERSION_29() { return 29; }
     static get VERSION_30() { return 30; }
+    static get VERSION_31() { return 31; }
 
 
     static get VERSION() {
-        return ShareConstants.VERSION_30;
+        return ShareConstants.VERSION_31;
     }
 
     static get LEGACY_VERSION() {
@@ -139,6 +140,12 @@ class ShareConstants {
         return ShareConstants.VERSION_30;
     }
 
+    // From this version on, variable references are encoded as bytes (not 4-bit nibbles)
+    // to support up to 16 variables (+ skill:bard) — values exceed the 0-15 nibble range.
+    static get VARIABLES_16_VERSION() {
+        return ShareConstants.VERSION_31;
+    }
+
     static get MATRIX_SIZE() {
         return GameConfig.world.matrixSize;
     }
@@ -196,15 +203,26 @@ class ShareConstants {
     }
 
     static get VARIABLE_IDS() {
-        return ['var-1', 'var-2', 'var-3', 'var-4', 'var-5', 'var-6', 'var-7', 'var-8', 'var-9', 'skill:bard'];
+        // NOTE: order is significant for backward compatibility — existing ids (incl. skill:bard
+        // at index 9) keep their positions; the extra variables are appended afterwards.
+        return [
+            'var-1', 'var-2', 'var-3', 'var-4', 'var-5', 'var-6', 'var-7', 'var-8', 'var-9', 'skill:bard',
+            'var-10', 'var-11', 'var-12', 'var-13', 'var-14', 'var-15', 'var-16'
+        ];
     }
 
     static get VARIABLE_NAMES() {
-        return ['1 - Preto', '2 - Azul Escuro', '3 - Roxo', '4 - Verde', '5 - Marrom', '6 - Cinza', '7 - Azul Claro', '8 - Rosa Choque', '9 - Amarelo', 'Habilidade: Bardo'];
+        return [
+            '1 - Preto', '2 - Azul Escuro', '3 - Roxo', '4 - Verde', '5 - Marrom', '6 - Cinza', '7 - Azul Claro', '8 - Rosa Choque', '9 - Amarelo', 'Habilidade: Bardo',
+            '10 - Cinza Claro', '11 - Branco', '12 - Vermelho', '13 - Laranja', '14 - Verde Claro', '15 - Índigo', '16 - Pêssego'
+        ];
     }
 
     static get VARIABLE_COLORS() {
-        return ['#000000', '#1D2B53', '#7E2553', '#008751', '#AB5236', '#5F574F', '#29ADFF', '#FF77A8', '#FFCCAA', '#FFD700'];
+        return [
+            '#000000', '#1D2B53', '#7E2553', '#008751', '#AB5236', '#5F574F', '#29ADFF', '#FF77A8', '#FFCCAA', '#FFD700',
+            '#C2C3C7', '#FFF1E8', '#FF004D', '#FFA300', '#00E756', '#83769C', '#FFCCAA'
+        ];
     }
 
     static get SUPPORTED_VERSIONS() {
@@ -239,7 +257,8 @@ class ShareConstants {
                 ShareConstants.VERSION_27,
                 ShareConstants.VERSION_28,
                 ShareConstants.VERSION_29,
-                ShareConstants.VERSION_30
+                ShareConstants.VERSION_30,
+                ShareConstants.VERSION_31
             ]);
         }
         return this._supportedVersions;

@@ -32,6 +32,33 @@ describe('StateVariableManager', () => {
     expect(normalized[0].name).toBe(TextResources.get('variables.names.var1'));
   });
 
+  it('provides 16 variables (var-1..var-16), each with a PICO-8 color', () => {
+    const game = makeGame();
+    const manager = new StateVariableManager(game, null);
+
+    const normalized = manager.normalizeVariables([]);
+    expect(normalized.length).toBe(16);
+    expect(normalized.map((v) => v.id)).toEqual(
+      Array.from({ length: 16 }, (_, i) => `var-${i + 1}`)
+    );
+    // var-16 is the new highest variable, peach color
+    const last = normalized[15];
+    expect(last.id).toBe('var-16');
+    expect(last.color).toBe('#FFCCAA');
+    expect(last.order).toBe(16);
+    // every variable has a non-empty hex color
+    normalized.forEach((v) => expect(v.color).toMatch(/^#[0-9A-Fa-f]{6}$/));
+  });
+
+  it('keeps existing variables (var-1..var-9) intact', () => {
+    const game = makeGame();
+    const manager = new StateVariableManager(game, null);
+    const normalized = manager.normalizeVariables([{ id: 'var-9', value: true }]);
+    const var9 = normalized.find((v) => v.id === 'var-9');
+    expect(var9?.value).toBe(true);
+    expect(var9?.color).toBe('#FFFF27');
+  });
+
   it('supports special variable ids and existing definitions', () => {
     const game = makeGame();
     const manager = new StateVariableManager(game, null);

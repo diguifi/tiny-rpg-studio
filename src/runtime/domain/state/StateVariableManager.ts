@@ -46,7 +46,14 @@ const STATE_VARIABLE_PRESETS: ReadonlyArray<VariablePreset> = Object.freeze([
     createVariablePreset('var-6', 6, 'variables.names.var6', '', '#5F574F'),
     createVariablePreset('var-7', 7, 'variables.names.var7', '', '#29ADFF'),
     createVariablePreset('var-8', 8, 'variables.names.var8', '', '#FF77A8'),
-    createVariablePreset('var-9', 9, 'variables.names.var9', '', '#FFFF27')
+    createVariablePreset('var-9', 9, 'variables.names.var9', '', '#FFFF27'),
+    createVariablePreset('var-10', 10, 'variables.names.var10', '', '#C2C3C7'),
+    createVariablePreset('var-11', 11, 'variables.names.var11', '', '#FFF1E8'),
+    createVariablePreset('var-12', 12, 'variables.names.var12', '', '#FF004D'),
+    createVariablePreset('var-13', 13, 'variables.names.var13', '', '#FFA300'),
+    createVariablePreset('var-14', 14, 'variables.names.var14', '', '#00E756'),
+    createVariablePreset('var-15', 15, 'variables.names.var15', '', '#83769C'),
+    createVariablePreset('var-16', 16, 'variables.names.var16', '', '#FFCCAA')
 ]);
 
 class StateVariableManager {

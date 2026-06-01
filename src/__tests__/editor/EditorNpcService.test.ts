@@ -124,6 +124,15 @@ describe('populateVariableSelect', () => {
   it('sets value to selectedId', () => { const {service} = makeService(); const sel=document.createElement('select'); service.populateVariableSelect(sel,'var-1'); expect(sel.value).toBe('var-1'); });
   it('adds bard when includeBardSkill=true', () => { const {service} = makeService(); const sel=document.createElement('select'); service.populateVariableSelect(sel,'',{includeBardSkill:true}); expect(Array.from(sel.options).find(o=>o.value==='skill:bard')).toBeDefined(); });
   it('no bard when includeBardSkill=false', () => { const {service} = makeService(); const sel=document.createElement('select'); service.populateVariableSelect(sel,'',{includeBardSkill:false}); expect(Array.from(sel.options).find(o=>o.value==='skill:bard')).toBeUndefined(); });
+  it('tints the option text with the variable color', () => {
+    const {service, manager} = makeService();
+    (manager.gameEngine.getVariableDefinitions as ReturnType<typeof vi.fn>).mockReturnValue([{ id: 'var-1', name: 'Green', color: '#00E756' }] as unknown as VariableDef[]);
+    const sel = document.createElement('select');
+    service.populateVariableSelect(sel);
+    const opt = Array.from(sel.options).find(o => o.value === 'var-1');
+    expect(opt?.textContent).toBe('Green');
+    expect(opt?.style.color).not.toBe('');
+  });
 });
 
 describe('updateNpcText', () => {
