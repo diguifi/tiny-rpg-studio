@@ -145,7 +145,12 @@ class RendererEntityRenderer {
                 const isActive = object.variableId
                     ? this.gameState.isVariableOn?.(object.variableId) ?? false
                     : Boolean(object.activated);
-                sprite = (isActive ? objectSprites[`${object.type}--on`] : objectSprites[object.type]) || sprite;
+                // A push-box at the same tile covers the plate — use inactive sprite so the
+                // plate's border pixels don't bleed through the box's transparent edges.
+                const boxOnPlate = isActive && objects.some(
+                    (o) => o.type === OT.PUSH_BOX && o.roomIndex === object.roomIndex && o.x === object.x && o.y === object.y
+                );
+                sprite = (isActive && !boxOnPlate ? objectSprites[`${object.type}--on`] : objectSprites[object.type]) || sprite;
             }
             if (object.type === OT.TRAP) {
                 const isActive = object.variableId

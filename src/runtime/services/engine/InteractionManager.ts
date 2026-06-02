@@ -96,6 +96,7 @@ type GameStateApi = {
   showPickupOverlay?: (payload: Record<string, unknown>) => void;
   setPlayerPosition: (x: number, y: number, roomIndex: number | null) => void;
   getRoomIndex: (row: number, col: number) => number | null;
+  resetPushBoxesForRoom?: (roomIndex: number) => void;
 };
 
 type Options = {
@@ -499,6 +500,7 @@ class InteractionManager {
       if (!sameTile) continue;
 
       if (rooms[exit.targetRoomIndex]) {
+        this.gameState.resetPushBoxesForRoom?.(player.roomIndex);
         this.gameState.setPlayerPosition(
           this.clamp(exit.targetX, 0, 7),
           this.clamp(exit.targetY, 0, 7),
