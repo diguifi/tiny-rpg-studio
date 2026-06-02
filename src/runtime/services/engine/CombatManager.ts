@@ -535,19 +535,18 @@ class CombatManager {
    * Play player death sequence: grayscale, pause, show death message, then game over
    */
   private playPlayerDeathSequence(enemyType: string): void {
+    this.playDeathSequence(getEnemyLocalizedName(enemyType));
+  }
+
+  playDeathSequence(killerName: string): void {
     this.cancelDeathSequence();
 
     soundEngine.play('playerDeath');
     this.renderer.applyGrayscaleFilter();
 
-    // Pause the game
     this.gameState.pauseGame('player-death');
 
-    // Get localized enemy name
-    const enemyName = getEnemyLocalizedName(enemyType);
-
-    // Show death message "Killed by [Enemy Name]"
-    const deathMessage = formatEnemyLocaleText('combat.killedBy', { enemy: enemyName }, '');
+    const deathMessage = formatEnemyLocaleText('combat.killedBy', { enemy: killerName }, '');
     this.renderer.showCombatIndicator(deathMessage, { duration: GameConfig.combat.messageDuration.death });
 
     // Wait for death sequence to complete, then trigger game over

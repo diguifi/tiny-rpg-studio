@@ -101,6 +101,7 @@ type GameStateApi = {
 
 type Options = {
   onPlayerVictory?: () => void;
+  onTrapKill?: () => void;
 };
 
 class InteractionManager {
@@ -354,8 +355,11 @@ class InteractionManager {
     const isActive = variableId ? !(this.gameState.isVariableOn?.(variableId) ?? false) : true;
     if (!isActive) return true;
     if (this.gameState.hasBoots?.()) return true;
-    this.gameState.damagePlayer?.(1);
+    const remainingLives = this.gameState.damagePlayer?.(1) ?? 1;
     soundEngine.play('playerHit');
+    if (remainingLives <= 0) {
+      this.options?.onTrapKill?.();
+    }
     return true;
   }
 

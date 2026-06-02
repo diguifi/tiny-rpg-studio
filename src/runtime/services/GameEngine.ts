@@ -79,6 +79,10 @@ export class GameEngine {
     this.dialogManager = new DialogManager(this.gameState as never, this.renderer);
     this.interactionManager = new InteractionManager(this.gameState as never, this.dialogManager, {
       onPlayerVictory: () => this.handleGameCompletion(),
+      onTrapKill: () => {
+        const trapName = TextResources.get('objects.label.trap', 'Trap') as string;
+        this.enemyManager.combatManager.playDeathSequence(trapName);
+      },
     });
     this.combatStunManager = new CombatStunManager(this.gameState.state);
     this.enemyManager = new EnemyManager(this.gameState as never, this.renderer, this.tileManager, {
