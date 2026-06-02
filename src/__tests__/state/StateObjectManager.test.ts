@@ -154,6 +154,40 @@ describe('StateObjectManager', () => {
     expect(plate.activated).toBe(false);
     expect(chest.opened).toBe(false);
   });
+
+  it('stores the reset position when placing a push-box through the editor API', () => {
+    const game = { start: { x: 1, y: 1, roomIndex: 0 }, objects: [], variables: [] };
+    const manager = new StateObjectManager(game, createWorldManager(), createVariableManager());
+
+    const box = manager.setObjectPosition(ITEM_TYPES.PUSH_BOX, 0, 3, 4);
+    if (!box) throw new Error('push-box not created');
+
+    box.x = 6;
+    box.y = 2;
+    manager.resetPushBoxesForRoom(0);
+
+    expect(box.originalX).toBe(3);
+    expect(box.originalY).toBe(4);
+    expect(box.x).toBe(3);
+    expect(box.y).toBe(4);
+  });
+
+  it('updates the reset position when repositioning a push-box by id', () => {
+    const game = { start: { x: 1, y: 1, roomIndex: 0 }, objects: [], variables: [] };
+    const manager = new StateObjectManager(game, createWorldManager(), createVariableManager());
+    const box = manager.setObjectPosition(ITEM_TYPES.PUSH_BOX, 0, 1, 2);
+    if (!box) throw new Error('push-box not created');
+
+    manager.moveObjectById(box.id, 5, 6);
+    box.x = 7;
+    box.y = 7;
+    manager.resetPushBoxesForRoom(0);
+
+    expect(box.originalX).toBe(5);
+    expect(box.originalY).toBe(6);
+    expect(box.x).toBe(5);
+    expect(box.y).toBe(6);
+  });
 });
 
 describe('StateObjectManager - logic gates', () => {

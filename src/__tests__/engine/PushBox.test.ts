@@ -212,6 +212,58 @@ describe('PushBox — MovementManager', () => {
 
     expect(gameState.resetPushBoxesForRoom).toHaveBeenCalledWith(0);
   });
+
+  it('resets an editor-created push-box after it is pushed, the player leaves, and then returns', () => {
+    const game = {
+      start: { x: 1, y: 1, roomIndex: 0 },
+      objects: [],
+      variables: [],
+    };
+    const objectManager = new StateObjectManager(game, createWorldManager(), createVariableManager());
+    const box = objectManager.setObjectPosition(ITEM_TYPES.PUSH_BOX, 0, 4, 3);
+    if (!box) throw new Error('push-box not created');
+
+    const player = { roomIndex: 0, x: 3, y: 3, lastX: 2 };
+    const gameState = createMovementGameState({
+      getPlayer: vi.fn(() => player),
+      getRoomCoords: vi.fn((roomIndex: number) => ({ row: 0, col: roomIndex })),
+      getRoomIndex: vi.fn((row: number, col: number) => (row === 0 && (col === 0 || col === 1) ? col : null)),
+      getGame: vi.fn(() => ({
+        rooms: [makeRoom(emptyWalls()), makeRoom(emptyWalls())],
+        sprites: [],
+      })),
+      getObjectAt: vi.fn((roomIndex, x, y) => objectManager.getObjectAt(roomIndex as number, x as number, y as number)),
+      resetPushBoxesForRoom: vi.fn((roomIndex: number) => objectManager.resetPushBoxesForRoom(roomIndex)),
+      setPlayerPosition: vi.fn((x: number, y: number, roomIndex: number | null) => {
+        player.x = x;
+        player.y = y;
+        if (roomIndex !== null) {
+          player.roomIndex = roomIndex;
+        }
+      }),
+    });
+    const manager = makeMovementManager(gameState);
+
+    manager.tryMove(1, 0);
+
+    expect(box.x).toBe(5);
+    expect(box.y).toBe(3);
+
+    player.x = 7;
+    player.y = 3;
+    manager.tryMove(1, 0);
+
+    expect(gameState.resetPushBoxesForRoom).toHaveBeenCalledWith(0);
+    expect(player.roomIndex).toBe(1);
+    expect(box.x).toBe(4);
+    expect(box.y).toBe(3);
+
+    manager.tryMove(-1, 0);
+
+    expect(player.roomIndex).toBe(0);
+    expect(box.x).toBe(4);
+    expect(box.y).toBe(3);
+  });
 });
 
 describe('PushBox — InteractionManager pressure plate integration', () => {

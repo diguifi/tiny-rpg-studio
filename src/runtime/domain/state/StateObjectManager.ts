@@ -440,6 +440,10 @@ class StateObjectManager {
             entry.variableId = this.variableManager?.normalizeVariableId?.(entry.variableId) ?? fallbackVariableId;
             entry.activated = false;
         }
+        if (normalizedType === ITEM_TYPES.PUSH_BOX) {
+            entry.originalX = entry.x;
+            entry.originalY = entry.y;
+        }
         return this.applyObjectBehavior(entry);
     }
 
@@ -462,6 +466,10 @@ class StateObjectManager {
         entry.y = this.worldManager.clampCoordinate(y);
         if (entry.type === StateObjectManager.PLAYER_START_TYPE) {
             this.syncPlayerStart(entry);
+        }
+        if (entry.type === ITEM_TYPES.PUSH_BOX) {
+            entry.originalX = entry.x;
+            entry.originalY = entry.y;
         }
         return true;
     }
