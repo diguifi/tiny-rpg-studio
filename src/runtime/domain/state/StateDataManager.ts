@@ -179,7 +179,7 @@ class StateDataManager {
         if (data.online?.enabled === true) {
             const spawnPoints = Array.isArray(data.online.spawnPoints)
                 ? data.online.spawnPoints.filter(
-                    (p) => p && typeof p.role === 'string' && typeof p.roomIndex === 'number' &&
+                    (p) => typeof p.role === 'string' && typeof p.roomIndex === 'number' &&
                            typeof p.x === 'number' && typeof p.y === 'number'
                   )
                 : [];

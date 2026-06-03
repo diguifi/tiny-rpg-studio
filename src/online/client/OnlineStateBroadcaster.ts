@@ -13,10 +13,10 @@ type GameStateRef = {
 
 export class OnlineStateBroadcaster {
     private tick = 0;
-    private lastEnemySnapshot: Record<string, EnemyNetState> = {};
-    private lastVariables: Record<number, number> = {};
-    private lastObjects: Record<string, ObjectNetState> = {};
-    private lastItems: Record<string, boolean> = {};
+    private lastEnemySnapshot: Partial<Record<string, EnemyNetState>> = {};
+    private lastVariables: Partial<Record<number, number>> = {};
+    private lastObjects: Partial<Record<string, ObjectNetState>> = {};
+    private lastItems: Partial<Record<string, boolean>> = {};
     private intervalId: ReturnType<typeof setInterval> | null = null;
 
     private client: OnlineClient;
@@ -167,7 +167,7 @@ export class OnlineStateBroadcaster {
     private extractObjects(): Record<string, ObjectNetState> {
         const result: Record<string, ObjectNetState> = {};
         if (typeof this.gameState.getObjects !== 'function') return result;
-        const raw = this.gameState.getObjects?.();
+        const raw = this.gameState.getObjects();
         const objs = Array.isArray(raw)
             ? (raw as Array<{ id: string; type?: string; collected?: boolean; on?: boolean; opened?: boolean; x?: number; y?: number }>)
             : [];

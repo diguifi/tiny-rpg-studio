@@ -69,8 +69,11 @@ export class OnlineClient {
         type: T,
         handler: (msg: Extract<OnlineMessage, { type: T }>) => void
     ): () => void {
-        if (!this.handlers.has(type)) this.handlers.set(type, new Set());
-        const set = this.handlers.get(type)!;
+        let set = this.handlers.get(type);
+        if (!set) {
+            set = new Set();
+            this.handlers.set(type, set);
+        }
         set.add(handler as MessageHandler);
         return () => set.delete(handler as MessageHandler);
     }

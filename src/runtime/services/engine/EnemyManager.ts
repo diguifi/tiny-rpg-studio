@@ -169,8 +169,12 @@ class EnemyManager {
   private trackWindupTimer(enemyId: string | undefined, timer: ReturnType<typeof setTimeout>): void {
     this.windupTimers.add(timer);
     if (enemyId) {
-      if (!this.windupTimersByEnemy.has(enemyId)) this.windupTimersByEnemy.set(enemyId, new Set());
-      this.windupTimersByEnemy.get(enemyId)!.add(timer);
+      let timers = this.windupTimersByEnemy.get(enemyId);
+      if (!timers) {
+        timers = new Set();
+        this.windupTimersByEnemy.set(enemyId, timers);
+      }
+      timers.add(timer);
     }
   }
 
@@ -712,7 +716,7 @@ class EnemyManager {
       if (rp.roomIndex === roomIndex && rp.x === x && rp.y === y) {
         const enemies = this.gameState.getEnemies();
         const enemy = enemies[enemyIndex];
-        if (enemy) this.triggerCollisionWithTarget(enemy, enemyIndex, { ...rp, remoteId: rp.id });
+        this.triggerCollisionWithTarget(enemy, enemyIndex, { ...rp, remoteId: rp.id });
         return true;
       }
     }

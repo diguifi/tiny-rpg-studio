@@ -75,7 +75,7 @@ describe('ShareEncoder', () => {
     expect(code.split('.').some((segment) => segment.startsWith('8'))).toBe(true);
     expect(decoded?.online?.enabled).toBe(true);
     expect(decoded?.online?.spawnPoints).toHaveLength(1);
-    expect(decoded?.online?.spawnPoints?.[0]).toMatchObject({ role: 'p2', roomIndex: 2, x: 3, y: 4 });
+    expect(decoded?.online?.spawnPoints[0]).toMatchObject({ role: 'p2', roomIndex: 2, x: 3, y: 4 });
   });
 
   it('omits online segment when online is disabled or absent', () => {

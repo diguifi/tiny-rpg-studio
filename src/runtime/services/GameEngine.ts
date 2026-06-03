@@ -14,7 +14,7 @@ import type { TileDefinition } from '../domain/definitions/tileTypes';
 import { TileDefinitions } from '../domain/definitions/TileDefinitions';
 import { SkillDefinitions } from '../domain/definitions/SkillDefinitions';
 import { GameConfig } from '../../config/GameConfig';
-import type { SkillCustomizationMap } from '../../types/gameState';
+import type { OnlineConfig, SkillCustomizationMap } from '../../types/gameState';
 import type { OnlineMode } from '../../types/onlineMode';
 import { BackgroundMusicEngine } from './BackgroundMusicEngine';
 
@@ -47,7 +47,7 @@ type GameData = {
   backgroundMusicVolume?: number;
   skillCustomizations?: SkillCustomizationMap;
   rooms?: unknown[];
-  online?: import('../../types/gameState').OnlineConfig;
+  online?: OnlineConfig;
 };
 
 export class GameEngine {
@@ -735,7 +735,7 @@ export class GameEngine {
       // Cancel any pending windup timers targeting this enemy to prevent ghost damage
       this.enemyManager.cancelWindupTimersForEnemy(enemyId);
       // Clear the attack telegraph so the indicator doesn't persist
-      this.renderer.attackTelegraph?.deactivateTelegraph(enemyId);
+      this.renderer.attackTelegraph.deactivateTelegraph(enemyId);
       this.onOnlineEnemyDied?.(enemyId, enemy.roomIndex);
       setTimeout(() => {
         const idx = this.gameState.getEnemies().findIndex((e) => e.id === enemyId);
@@ -750,7 +750,7 @@ export class GameEngine {
     const player = this.gameState.getPlayer();
     if (!player) return null;
     const now = performance.now();
-    if (now - (player.lastAttackTime ?? 0) < GameConfig.combat.attackCooldown) {
+    if (now - player.lastAttackTime < GameConfig.combat.attackCooldown) {
       return null;
     }
     const enemy = this.gameState.getEnemies().find((entry) => entry.id === enemyId);

@@ -46,7 +46,7 @@ export class OnlineStateSync {
                 enemy._vx = netState.x;
                 enemy._vy = netState.y;
                 enemy.lastX = enemy.x;
-                if (netState.hp !== undefined) enemy.lives = netState.hp;
+                enemy.lives = netState.hp;
                 enemy.roomIndex = netState.roomIndex;
                 if (netState.playerInVision !== undefined) enemy.playerInVision = netState.playerInVision;
             }
@@ -56,9 +56,9 @@ export class OnlineStateSync {
                 this.applyEnemyDeath(enemy.id, enemy);
             }
         }
-        if (snapshot.variables) this.applyVariableDiff(snapshot.variables);
-        if (snapshot.objects) this.applyObjectDiff(snapshot.objects);
-        if (snapshot.items) this.applyItemDiff(snapshot.items);
+        this.applyVariableDiff(snapshot.variables);
+        this.applyObjectDiff(snapshot.objects);
+        this.applyItemDiff(snapshot.items);
     }
 
     applyEnemyDeath(enemyId: string, fallbackState?: Partial<EnemyNetState>): void {
@@ -115,7 +115,7 @@ export class OnlineStateSync {
             enemy.lastX = enemy.x;
             enemy.x = netState.x;
             enemy.y = netState.y;
-            if (netState.hp !== undefined) enemy.lives = netState.hp;
+            enemy.lives = netState.hp;
             enemy.roomIndex = netState.roomIndex;
             if (netState.playerInVision !== undefined) enemy.playerInVision = netState.playerInVision;
         }
@@ -161,7 +161,7 @@ export class OnlineStateSync {
 
     private applyObjectDiff(objects: Record<string, { collected: boolean; on: boolean; opened?: boolean; x?: number; y?: number }>): void {
         if (typeof this.gameState.getObjects !== 'function') return;
-        const raw = this.gameState.getObjects?.();
+        const raw = this.gameState.getObjects();
         const localObjs = Array.isArray(raw)
             ? (raw as Array<{ id: string; type?: string; collected?: boolean; on?: boolean; opened?: boolean; x?: number; y?: number }>)
             : [];
