@@ -119,6 +119,30 @@ describe('ShareEncoder', () => {
 
     expect(decoded?.backgroundMusicVideoId).toBe('t0ihNLLZNi0');
   });
+
+  it('emits a compact volume segment only when backgroundMusicVolume differs from the default', () => {
+    const customVolumeCode = ShareEncoder.buildShareCode({
+      backgroundMusicVideoId: 't0ihNLLZNi0',
+      backgroundMusicVolume: 75
+    } as { backgroundMusicVideoId?: string; backgroundMusicVolume?: number });
+    const defaultVolumeCode = ShareEncoder.buildShareCode({
+      backgroundMusicVideoId: 't0ihNLLZNi0',
+      backgroundMusicVolume: 100
+    } as { backgroundMusicVideoId?: string; backgroundMusicVolume?: number });
+
+    expect(customVolumeCode.split('.')).toContain('223');
+    expect(defaultVolumeCode.split('.').some((segment) => segment.startsWith('2'))).toBe(false);
+  });
+
+  it('preserves backgroundMusicVolume through an encode/decode round trip', () => {
+    const code = ShareEncoder.buildShareCode({
+      backgroundMusicVideoId: 't0ihNLLZNi0',
+      backgroundMusicVolume: 33
+    } as { backgroundMusicVideoId?: string; backgroundMusicVolume?: number });
+    const decoded = ShareDecoder.decodeShareCode(code) as ({ backgroundMusicVolume?: number } | null);
+
+    expect(decoded?.backgroundMusicVolume).toBe(33);
+  });
 });
 
 describe('ShareEncoder - customSprites', () => {

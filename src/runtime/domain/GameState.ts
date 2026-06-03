@@ -16,6 +16,7 @@ import { StateSkillManager } from './state/StateSkillManager';
 import { StateVariableManager } from './state/StateVariableManager';
 import { StateWorldManager } from './state/StateWorldManager';
 import { GameConfig } from '../../config/GameConfig';
+import { DEFAULT_BACKGROUND_MUSIC_VOLUME } from '../infra/share/BackgroundMusicVideoId';
 import type { TileMap, Tileset } from './definitions/tileTypes';
 import type {
     DialogMeta,
@@ -82,6 +83,7 @@ class GameState {
             title: "My Tiny RPG Game",
             author: "",
             palette: ['#000000', '#1D2B53', '#FFF1E8'],
+            backgroundMusicVolume: DEFAULT_BACKGROUND_MUSIC_VOLUME,
             hideHud: false,
             disableSkills: false,
             roomSize,

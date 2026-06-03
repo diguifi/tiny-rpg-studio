@@ -155,6 +155,10 @@ class ShareConstants {
         return ShareConstants.VERSION_33;
     }
 
+    static get BACKGROUND_MUSIC_VOLUME_VERSION() {
+        return ShareConstants.VERSION_33;
+    }
+
     static get MATRIX_SIZE() {
         return GameConfig.world.matrixSize;
     }

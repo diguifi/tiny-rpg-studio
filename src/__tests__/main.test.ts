@@ -7,6 +7,7 @@ import { setTinyRpgApi, type TinyRpgApi } from '../runtime/infra/TinyRpgApi';
 
 type BindResetGameEngine = Parameters<typeof TinyRPGApplication.bindResetButton>[0];
 type TouchPadGameEngine = Parameters<typeof TinyRPGApplication.bindTouchPad>[0];
+type VolumeControlGameEngine = Parameters<typeof TinyRPGApplication.bindBackgroundMusicVolumeControl>[0];
 type SharedLoadGameEngine = Parameters<typeof TinyRPGApplication.loadSharedGameIfAvailable>[0];
 
 // Mock GameEngine
@@ -29,6 +30,15 @@ class MockSharedLoadEngine {
   importGameData = vi.fn();
 }
 
+class MockVolumeControlEngine {
+  game = { backgroundMusicVideoId: 't0ihNLLZNi0', backgroundMusicVolume: 80 };
+  backgroundMusicEngine = {
+    getVolume: vi.fn(() => 80),
+    setVolume: vi.fn(),
+  };
+  getGame = vi.fn(() => this.game);
+}
+
 function asBindResetGameEngine(engine: MockGameEngine): BindResetGameEngine {
   return engine as unknown as BindResetGameEngine;
 }
@@ -39,6 +49,10 @@ function asTouchPadGameEngine(engine: MockTouchGameEngine): TouchPadGameEngine {
 
 function asSharedLoadGameEngine(engine: MockSharedLoadEngine): SharedLoadGameEngine {
   return engine as unknown as SharedLoadGameEngine;
+}
+
+function asVolumeControlGameEngine(engine: MockVolumeControlEngine): VolumeControlGameEngine {
+  return engine as unknown as VolumeControlGameEngine;
 }
 
 const createTabMarkup = () => {
@@ -572,6 +586,79 @@ describe('TinyRPGApplication.bindFullscreenButton', () => {
 
     expect(exitFullscreenSpy).toHaveBeenCalledTimes(1);
     expect(button.hidden).toBe(true);
+  });
+});
+
+describe('TinyRPGApplication.bindBackgroundMusicVolumeControl', () => {
+  let engine: MockVolumeControlEngine;
+  let originalMatchMedia: typeof globalThis.matchMedia | undefined;
+
+  beforeEach(() => {
+    engine = new MockVolumeControlEngine();
+    document.body.innerHTML = `<div id="game-container"></div>`;
+    document.body.classList.add('game-mode');
+    originalMatchMedia = globalThis.matchMedia;
+    globalThis.matchMedia = vi.fn(() => ({
+      matches: true,
+      media: '(hover: hover) and (pointer: fine)',
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })) as unknown as typeof globalThis.matchMedia;
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.body.className = '';
+    vi.restoreAllMocks();
+    if (originalMatchMedia) {
+      globalThis.matchMedia = originalMatchMedia;
+    } else {
+      // @ts-expect-error test cleanup for optional global
+      delete globalThis.matchMedia;
+    }
+  });
+
+  it('shows a local music volume slider in game mode when background music is configured', () => {
+    TinyRPGApplication.bindBackgroundMusicVolumeControl(asVolumeControlGameEngine(engine));
+
+    const slider = document.getElementById('game-background-music-volume') as HTMLInputElement;
+    const fullscreen = document.getElementById('game-fullscreen-toggle');
+
+    expect(slider).toBeInstanceOf(HTMLInputElement);
+    expect(slider.value).toBe('80');
+    expect(slider.closest('.game-audio-controls')).not.toHaveProperty('hidden', true);
+    expect(fullscreen).toBeNull();
+  });
+
+  it('hides the local music volume slider in editor mode or without background music', () => {
+    TinyRPGApplication.bindBackgroundMusicVolumeControl(asVolumeControlGameEngine(engine));
+    const group = document.getElementById('game-audio-controls') as HTMLElement;
+
+    document.body.classList.remove('game-mode');
+    document.body.classList.add('editor-mode');
+    document.dispatchEvent(new CustomEvent('editor-tab-activated'));
+    expect(group.hidden).toBe(true);
+
+    document.body.classList.remove('editor-mode');
+    document.body.classList.add('game-mode');
+    engine.game.backgroundMusicVideoId = '';
+    document.dispatchEvent(new CustomEvent('game-tab-activated'));
+    expect(group.hidden).toBe(true);
+  });
+
+  it('updates only the in-memory music engine volume when the game slider changes', () => {
+    TinyRPGApplication.bindBackgroundMusicVolumeControl(asVolumeControlGameEngine(engine));
+    const slider = document.getElementById('game-background-music-volume') as HTMLInputElement;
+    const value = document.getElementById('game-background-music-volume-value') as HTMLElement;
+
+    slider.value = '25';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(engine.backgroundMusicEngine.setVolume).toHaveBeenCalledWith(25);
+    expect(value.textContent).toBe('25%');
+    expect(engine.game.backgroundMusicVolume).toBe(80);
   });
 });
 

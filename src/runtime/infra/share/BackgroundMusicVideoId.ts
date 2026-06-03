@@ -1,4 +1,5 @@
 const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+const DEFAULT_BACKGROUND_MUSIC_VOLUME = 100;
 
 function isYoutubeHost(hostname: string): boolean {
     const normalized = hostname.toLowerCase();
@@ -56,13 +57,27 @@ function buildBackgroundMusicUrl(videoId: string | null | undefined): string {
 
 function buildBackgroundMusicEmbedUrl(videoId: string | null | undefined): string {
     const normalized = sanitizeVideoId(videoId);
-    return normalized
-        ? `https://www.youtube.com/embed/${normalized}?autoplay=1&controls=0&loop=1&playlist=${normalized}&rel=0`
+    const origin = typeof globalThis.location.origin === 'string' && globalThis.location.origin
+        ? `&origin=${encodeURIComponent(globalThis.location.origin)}`
         : '';
+    return normalized
+        ? `https://www.youtube.com/embed/${normalized}?autoplay=1&controls=0&loop=1&playlist=${normalized}&rel=0&enablejsapi=1${origin}`
+        : '';
+}
+
+function normalizeBackgroundMusicVolume(input: unknown, fallback = DEFAULT_BACKGROUND_MUSIC_VOLUME): number {
+    if (typeof input !== 'number' || !Number.isFinite(input)) {
+        return fallback;
+    }
+
+    const integer = Math.floor(input);
+    return Math.max(0, Math.min(100, integer));
 }
 
 export {
     buildBackgroundMusicEmbedUrl,
     buildBackgroundMusicUrl,
+    DEFAULT_BACKGROUND_MUSIC_VOLUME,
+    normalizeBackgroundMusicVolume,
     normalizeBackgroundMusicVideoId,
 };

@@ -45,6 +45,22 @@ describe('ShareDecoder', () => {
 
     expect(decoded).toBeNull();
   });
+
+  it('defaults backgroundMusicVolume for legacy URLs without the segment', () => {
+    const legacyCode = `v${ShareConstants.VERSION_32.toString(36)}.Mt0ihNLLZNi0`;
+
+    const decoded = ShareDecoder.decodeShareCode(legacyCode) as { backgroundMusicVolume?: number } | null;
+
+    expect(decoded?.backgroundMusicVolume).toBe(100);
+  });
+
+  it('normalizes invalid and out-of-range backgroundMusicVolume segments', () => {
+    const invalid = ShareDecoder.decodeShareCode(`v${ShareConstants.VERSION.toString(36)}.2bad`) as { backgroundMusicVolume?: number } | null;
+    const tooHigh = ShareDecoder.decodeShareCode(`v${ShareConstants.VERSION.toString(36)}.2zz`) as { backgroundMusicVolume?: number } | null;
+
+    expect(invalid?.backgroundMusicVolume).toBe(100);
+    expect(tooHigh?.backgroundMusicVolume).toBe(100);
+  });
 });
 
 describe('ShareDecoder - customSprites', () => {

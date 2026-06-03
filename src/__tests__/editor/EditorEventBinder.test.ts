@@ -94,6 +94,8 @@ function makeDom() {
     const projectDisableSkills = document.createElement('input');
     projectDisableSkills.type = 'checkbox';
     const projectBackgroundMusicUrl = document.createElement('input');
+    const projectBackgroundMusicVolume = document.createElement('input');
+    projectBackgroundMusicVolume.type = 'range';
 
     const shareUrlInput = document.createElement('input');
     shareUrlInput.select = vi.fn();
@@ -133,6 +135,7 @@ function makeDom() {
         projectHideHud,
         projectDisableSkills,
         projectBackgroundMusicUrl,
+        projectBackgroundMusicVolume,
         shareUrlInput,
     };
 }
@@ -226,6 +229,7 @@ function makeManager() {
         setHideHud: vi.fn(),
         setDisableSkills: vi.fn(),
         setBackgroundMusicUrl: vi.fn(),
+        setBackgroundMusicVolume: vi.fn(),
         setTestSkills: vi.fn(),
         desselectAllAndRender: vi.fn(),
         handleKey: vi.fn(),
@@ -367,6 +371,12 @@ describe('EditorEventBinder', () => {
         dom.projectBackgroundMusicUrl.value = 'https://youtu.be/t0ihNLLZNi0';
         dom.projectBackgroundMusicUrl.dispatchEvent(new Event('input', { bubbles: true }));
         expect(manager.setBackgroundMusicUrl).toHaveBeenCalledWith('https://youtu.be/t0ihNLLZNi0');
+    });
+
+    it('projectBackgroundMusicVolume input calls manager.setBackgroundMusicVolume with the numeric value', () => {
+        dom.projectBackgroundMusicVolume.value = '72';
+        dom.projectBackgroundMusicVolume.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(manager.setBackgroundMusicVolume).toHaveBeenCalledWith(72);
     });
 
     // 13. projectTestDebugVision change

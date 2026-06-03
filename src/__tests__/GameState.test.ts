@@ -13,6 +13,7 @@ describe('GameState', () => {
       const game = state.getGame();
 
       expect(game.title).toBe('My Tiny RPG Game');
+      expect(game.backgroundMusicVolume).toBe(100);
       expect(game.rooms.length).toBe(9);
       expect(state.getPlayer()?.x).toBe(1);
 

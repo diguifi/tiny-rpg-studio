@@ -3,7 +3,10 @@ import type { StateWorldManager } from './StateWorldManager';
 import type { StateObjectManager, ObjectEntry } from './StateObjectManager';
 import type { StateVariableManager } from './StateVariableManager';
 import { SkillDefinitions } from '../definitions/SkillDefinitions';
-import { normalizeBackgroundMusicVideoId } from '../../infra/share/BackgroundMusicVideoId';
+import {
+    normalizeBackgroundMusicVideoId,
+    normalizeBackgroundMusicVolume,
+} from '../../infra/share/BackgroundMusicVideoId';
 
 type StateDataManagerOptions = {
     game: GameDefinition;
@@ -18,6 +21,7 @@ type ImportData = {
     palette?: string[];
     customPalette?: string[];
     backgroundMusicVideoId?: string;
+    backgroundMusicVolume?: unknown;
     hideHud?: boolean;
     disableSkills?: boolean;
     disablePixelFont?: boolean;
@@ -78,6 +82,7 @@ class StateDataManager {
             palette: this.game.palette,
             customPalette: this.game.customPalette,
             backgroundMusicVideoId: this.game.backgroundMusicVideoId,
+            backgroundMusicVolume: normalizeBackgroundMusicVolume(this.game.backgroundMusicVolume),
             hideHud: Boolean(this.game.hideHud),
             disableSkills: Boolean(this.game.disableSkills),
             disablePixelFont: Boolean(this.game.disablePixelFont),
@@ -135,6 +140,7 @@ class StateDataManager {
             palette: Array.isArray(data.palette) && data.palette.length >= 3 ? data.palette.slice(0, 3) : ['#000000', '#1D2B53', '#FFF1E8'],
             customPalette,
             backgroundMusicVideoId: normalizeBackgroundMusicVideoId(data.backgroundMusicVideoId),
+            backgroundMusicVolume: normalizeBackgroundMusicVolume(data.backgroundMusicVolume),
             hideHud: Boolean(data.hideHud),
             disableSkills: Boolean(data.disableSkills),
             disablePixelFont: Boolean(data.disablePixelFont),

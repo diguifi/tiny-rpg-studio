@@ -38,3 +38,14 @@ describe('ShareConstants - VERSION_28', () => {
         expect(ShareConstants.SUPPORTED_VERSIONS.has(ShareConstants.VERSION_28)).toBe(true);
     });
 });
+
+describe('ShareConstants - background music volume version', () => {
+    it('VERSION_33 existe e vale 33', () => {
+        expect(ShareConstants.VERSION_33).toBe(33);
+    });
+
+    it('BACKGROUND_MUSIC_VOLUME_VERSION aponta para VERSION_33 e esta suportada', () => {
+        expect(ShareConstants.BACKGROUND_MUSIC_VOLUME_VERSION).toBe(ShareConstants.VERSION_33);
+        expect(ShareConstants.SUPPORTED_VERSIONS.has(ShareConstants.VERSION_33)).toBe(true);
+    });
+});

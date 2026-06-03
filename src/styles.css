@@ -932,6 +932,58 @@ body.editor-mode .editor-mobile-nav-button:focus-visible {
     flex: 0 0 auto;
 }
 
+.project-volume-control {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) 42px;
+    align-items: center;
+    gap: 8px;
+}
+
+.project-volume-control input[type='range'] {
+    width: 100%;
+}
+
+.project-volume-control span {
+    text-align: right;
+    color: var(--muted);
+}
+
+.game-audio-controls {
+    position: absolute;
+    right: clamp(12px, 4vw, 32px);
+    bottom: clamp(54px, 8vw, 72px);
+    z-index: 5;
+    padding: 6px 8px;
+    border: 2px solid var(--border);
+    background: rgba(12, 15, 22, 0.9);
+    color: #fff;
+}
+
+.game-audio-controls[hidden] {
+    display: none;
+}
+
+.game-audio-controls__label {
+    display: grid;
+    grid-template-columns: 92px 36px;
+    align-items: center;
+    gap: 6px;
+}
+
+.game-audio-controls input[type='range'] {
+    width: 92px;
+}
+
+.game-audio-controls span {
+    text-align: right;
+}
+
+@media (hover: none), (pointer: coarse) {
+    .game-audio-controls {
+        display: none;
+    }
+}
+
 .touch-controls-toggle {
     display: none;
     margin-top: 8px;

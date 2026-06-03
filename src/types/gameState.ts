@@ -192,6 +192,7 @@ export type GameDefinition = {
     palette: string[];
     customPalette?: string[];
     backgroundMusicVideoId?: string;
+    backgroundMusicVolume?: number;
     hideHud?: boolean;
     disableSkills?: boolean;
     disablePixelFont?: boolean;

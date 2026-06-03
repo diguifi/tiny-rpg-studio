@@ -43,6 +43,8 @@ type GameData = {
   hideHud?: boolean;
   disableSkills?: boolean;
   disablePixelFont?: boolean;
+  backgroundMusicVideoId?: string;
+  backgroundMusicVolume?: number;
   skillCustomizations?: SkillCustomizationMap;
   rooms?: unknown[];
   online?: import('../../types/gameState').OnlineConfig;

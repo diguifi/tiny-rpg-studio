@@ -23,6 +23,7 @@ type EditorGameFixture = {
   backgroundMusicVideoId?: string;
   online?: { enabled: boolean; spawnPoints?: Array<{ role: string; roomIndex: number; x: number; y: number }> };
   start?: { roomIndex: number; x: number; y: number };
+  backgroundMusicVolume?: number;
 };
 
 type BackgroundMusicEngineFixture = {
@@ -51,6 +52,9 @@ function makeManager(stateOverrides: Record<string, unknown> = {}) {
   const projectBackgroundMusicUrl = makeInput('');
   const projectOnlineControls = document.createElement('div');
   const onlineP2SpawnLabel = document.createElement('span');
+  const projectBackgroundMusicVolume = makeInput('');
+  projectBackgroundMusicVolume.type = 'range';
+  const projectBackgroundMusicVolumeValue = document.createElement('span');
   const jsonArea = document.createElement('textarea');
   const projectTabDevelopment = document.createElement('button');
   projectTabDevelopment.dataset.projectTabButton = 'development';
@@ -76,6 +80,8 @@ function makeManager(stateOverrides: Record<string, unknown> = {}) {
       projectBackgroundMusicUrl,
       projectOnlineControls,
       onlineP2SpawnLabel,
+      projectBackgroundMusicVolume,
+      projectBackgroundMusicVolumeValue,
       jsonArea,
       projectTabButtons: [projectTabDevelopment, projectTabTesting],
       projectTabPanels: [projectPanelDevelopment, projectPanelTesting],
@@ -94,7 +100,8 @@ function makeManager(stateOverrides: Record<string, unknown> = {}) {
         author: 'Test Author',
         hideHud: false,
         disableSkills: false,
-        backgroundMusicVideoId: undefined
+        backgroundMusicVideoId: undefined,
+        backgroundMusicVolume: 100,
       })),
       backgroundMusicEngine: {
         syncFromGame: vi.fn(),
@@ -344,6 +351,32 @@ describe('EditorUIController', () => {
     expect(mgr.renderService.renderEditor).toHaveBeenCalled();
   });
 
+  it('setBackgroundMusicVolume normalizes, persists and syncs preview without starting editor playback', () => {
+    document.body.classList.add('editor-mode');
+    const mgr = makeManager();
+    const game: EditorGameFixture = {
+      title: 'Music',
+      author: 'Dev',
+      hideHud: false,
+      disableSkills: false,
+      backgroundMusicVideoId: 't0ihNLLZNi0',
+      backgroundMusicVolume: 100,
+    };
+    mgr.gameEngine.getGame.mockReturnValue(game);
+    const ctrl = makeController(mgr);
+
+    (ctrl as unknown as { setBackgroundMusicVolume: (value: number) => void })
+      .setBackgroundMusicVolume(140);
+
+    expect(game.backgroundMusicVolume).toBe(100);
+    expect(mgr.gameEngine.backgroundMusicEngine.syncFromGame).toHaveBeenCalledWith(game);
+    expect(mgr.gameEngine.backgroundMusicEngine.stop).toHaveBeenCalled();
+    expect(mgr.domCache.projectBackgroundMusicVolume.value).toBe('100');
+    expect(mgr.domCache.projectBackgroundMusicVolumeValue.textContent).toBe('100%');
+    expect(mgr.renderService.renderVariableUsage).toHaveBeenCalled();
+    document.body.classList.remove('editor-mode');
+  });
+
   // ─── syncUI ──────────────────────────────────────────────────────────
 
   it('syncUI sets title/author inputs from game and calls updateJSON', () => {
@@ -353,7 +386,8 @@ describe('EditorUIController', () => {
       author: 'Dev',
       hideHud: true,
       disableSkills: true,
-      backgroundMusicVideoId: 't0ihNLLZNi0'
+      backgroundMusicVideoId: 't0ihNLLZNi0',
+      backgroundMusicVolume: 73,
     });
     const ctrl = makeController(mgr);
     ctrl.syncUI();
@@ -362,6 +396,8 @@ describe('EditorUIController', () => {
     expect(mgr.domCache.projectHideHud.checked).toBe(true);
     expect(mgr.domCache.projectDisableSkills.checked).toBe(true);
     expect(mgr.domCache.projectBackgroundMusicUrl.value).toBe('https://www.youtube.com/watch?v=t0ihNLLZNi0');
+    expect(mgr.domCache.projectBackgroundMusicVolume.value).toBe('73');
+    expect(mgr.domCache.projectBackgroundMusicVolumeValue.textContent).toBe('73%');
     // updateJSON is a real method on the controller; verify its side effects
     expect(mgr.renderService.renderVariableUsage).toHaveBeenCalled();
   });
