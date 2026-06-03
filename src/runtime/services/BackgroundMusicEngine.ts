@@ -1,11 +1,14 @@
 import {
     buildBackgroundMusicEmbedUrl,
+    DEFAULT_BACKGROUND_MUSIC_VOLUME,
+    normalizeBackgroundMusicVolume,
     normalizeBackgroundMusicVideoId,
 } from '../infra/share/BackgroundMusicVideoId';
 
 class BackgroundMusicEngine {
     private videoId: string | null = null;
     private iframe: HTMLIFrameElement | null = null;
+    private volume = DEFAULT_BACKGROUND_MUSIC_VOLUME;
 
     setVideoId(videoId?: string | null): void {
         this.videoId = normalizeBackgroundMusicVideoId(videoId) ?? null;
@@ -24,18 +27,30 @@ class BackgroundMusicEngine {
         this.mountIframe();
     }
 
+    setVolume(volume: number): void {
+        this.volume = normalizeBackgroundMusicVolume(volume, this.volume);
+        this.postVolumeCommand();
+    }
+
+    getVolume(): number {
+        return this.volume;
+    }
+
     stop(): void {
         this.iframe?.remove();
         this.iframe = null;
     }
 
-    syncFromGame(game: { backgroundMusicVideoId?: string }): void {
+    syncFromGame(game: { backgroundMusicVideoId?: string; backgroundMusicVolume?: number }): void {
+        this.volume = normalizeBackgroundMusicVolume(game.backgroundMusicVolume);
         this.setVideoId(game.backgroundMusicVideoId);
+        this.postVolumeCommand();
     }
 
     destroy(): void {
         this.stop();
         this.videoId = null;
+        this.volume = DEFAULT_BACKGROUND_MUSIC_VOLUME;
     }
 
     private mountIframe(): void {
@@ -57,6 +72,7 @@ class BackgroundMusicEngine {
             this.iframe.setAttribute('allow', 'autoplay; encrypted-media');
             this.iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
             this.iframe.tabIndex = -1;
+            this.iframe.addEventListener('load', () => this.postVolumeCommand());
             Object.assign(this.iframe.style, {
                 position: 'fixed',
                 width: '0',
@@ -73,6 +89,16 @@ class BackgroundMusicEngine {
         if (this.iframe.src !== src) {
             this.iframe.src = src;
         }
+        this.postVolumeCommand();
+    }
+
+    private postVolumeCommand(): void {
+        const targetWindow = this.iframe?.contentWindow;
+        if (!targetWindow) return;
+        targetWindow.postMessage(
+            JSON.stringify({ event: 'command', func: 'setVolume', args: [this.volume] }),
+            'https://www.youtube.com'
+        );
     }
 }
 

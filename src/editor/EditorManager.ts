@@ -366,6 +366,10 @@ class EditorManager {
         this.uiController.setBackgroundMusicUrl(url);
     }
 
+    setBackgroundMusicVolume(value: number) {
+        this.uiController.setBackgroundMusicVolume(value);
+    }
+
     setDisablePixelFont(active: boolean) {
         this.uiController.setDisablePixelFont(active);
     }

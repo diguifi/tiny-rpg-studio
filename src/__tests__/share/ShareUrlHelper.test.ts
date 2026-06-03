@@ -54,4 +54,16 @@ describe('ShareUrlHelper', () => {
 
     spy.mockRestore();
   });
+
+  it('includes backgroundMusicVolume in the hash when it differs from the default', () => {
+    globalThis.history.replaceState({}, '', '/share');
+
+    const url = ShareUrlHelper.buildShareUrl({
+      backgroundMusicVideoId: 't0ihNLLZNi0',
+      backgroundMusicVolume: 40,
+    });
+
+    expect(url).toContain('#');
+    expect(url.split('#')[1]?.split('.')).toContain('214');
+  });
 });

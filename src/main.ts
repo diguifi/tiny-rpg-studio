@@ -7,6 +7,7 @@ import { GameEngine } from './runtime/services/GameEngine';
 import { ShareUtils } from './runtime/infra/share/ShareUtils';
 import { getTinyRpgApi, setTinyRpgApi, type TinyRpgApi } from './runtime/infra/TinyRpgApi';
 import { TextResources } from './runtime/adapters/TextResources';
+import { normalizeBackgroundMusicVolume } from './runtime/infra/share/BackgroundMusicVideoId';
 
 const getTextResource = (key: string, fallback = ''): string => {
   const value = TextResources.get(key, fallback) as string;
@@ -78,6 +79,7 @@ class TinyRPGApplication {
     this.bindResetButton(gameEngine);
     this.bindTouchPad(gameEngine);
     this.bindFullscreenButton();
+    this.bindBackgroundMusicVolumeControl(gameEngine);
     this.bindLanguageSelector();
 
     console.log(getTextResource('log.engineReady'));
@@ -305,6 +307,70 @@ class TinyRPGApplication {
     }
 
     syncButtonState();
+    updateVisibility();
+  }
+
+  static bindBackgroundMusicVolumeControl(gameEngine: GameEngine): void {
+    const gameContainer = document.getElementById('game-container');
+    if (!(gameContainer instanceof HTMLElement)) return;
+
+    const desktopQuery = typeof globalThis.matchMedia === 'function'
+      ? globalThis.matchMedia('(hover: hover) and (pointer: fine)')
+      : null;
+    const controls = document.createElement('div');
+    controls.id = 'game-audio-controls';
+    controls.className = 'game-audio-controls';
+    controls.hidden = true;
+
+    const label = document.createElement('label');
+    label.className = 'game-audio-controls__label';
+    label.setAttribute('for', 'game-background-music-volume');
+
+    const slider = document.createElement('input');
+    slider.id = 'game-background-music-volume';
+    slider.type = 'range';
+    slider.min = '0';
+    slider.max = '100';
+    slider.step = '1';
+
+    const value = document.createElement('span');
+    value.id = 'game-background-music-volume-value';
+    value.setAttribute('aria-live', 'polite');
+
+    label.append(slider, value);
+    controls.appendChild(label);
+    gameContainer.appendChild(controls);
+
+    const syncValue = (volume: number) => {
+      const normalized = normalizeBackgroundMusicVolume(volume);
+      slider.value = String(normalized);
+      value.textContent = `${normalized}%`;
+    };
+
+    const updateVisibility = () => {
+      const game = gameEngine.getGame() as { backgroundMusicVideoId?: string };
+      const isDesktop = desktopQuery?.matches ?? false;
+      const isGameMode = document.body.classList.contains('game-mode');
+      const hasMusic = typeof game.backgroundMusicVideoId === 'string' && game.backgroundMusicVideoId.trim().length > 0;
+      controls.hidden = !isDesktop || !isGameMode || !hasMusic;
+      if (!controls.hidden) {
+        syncValue(gameEngine.backgroundMusicEngine.getVolume());
+      }
+    };
+
+    slider.addEventListener('input', () => {
+      const volume = normalizeBackgroundMusicVolume(Number(slider.value));
+      gameEngine.backgroundMusicEngine.setVolume(volume);
+      syncValue(volume);
+    });
+
+    document.addEventListener('game-tab-activated', updateVisibility);
+    document.addEventListener('editor-tab-activated', updateVisibility);
+    document.addEventListener('share-url-ready', updateVisibility);
+    if (desktopQuery) {
+      desktopQuery.addEventListener('change', updateVisibility);
+    }
+
     updateVisibility();
   }
 

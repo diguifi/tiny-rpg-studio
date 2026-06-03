@@ -4,7 +4,7 @@ import { ShareConstants } from '../../runtime/infra/share/ShareConstants';
 
 describe('ShareConstants', () => {
   it('exposes current version and world metadata', () => {
-    expect(ShareConstants.VERSION).toBe(ShareConstants.VERSION_32);
+    expect(ShareConstants.VERSION).toBe(ShareConstants.VERSION_33);
     expect(ShareConstants.WORLD_ROOM_COUNT).toBe(9);
     expect(ShareConstants.MATRIX_SIZE).toBe(8);
   });
@@ -36,5 +36,16 @@ describe('ShareConstants - VERSION_28', () => {
 
     it('VERSION_28 esta em SUPPORTED_VERSIONS', () => {
         expect(ShareConstants.SUPPORTED_VERSIONS.has(ShareConstants.VERSION_28)).toBe(true);
+    });
+});
+
+describe('ShareConstants - background music volume version', () => {
+    it('VERSION_33 existe e vale 33', () => {
+        expect(ShareConstants.VERSION_33).toBe(33);
+    });
+
+    it('BACKGROUND_MUSIC_VOLUME_VERSION aponta para VERSION_33 e esta suportada', () => {
+        expect(ShareConstants.BACKGROUND_MUSIC_VOLUME_VERSION).toBe(ShareConstants.VERSION_33);
+        expect(ShareConstants.SUPPORTED_VERSIONS.has(ShareConstants.VERSION_33)).toBe(true);
     });
 });

@@ -12,6 +12,7 @@ const makeGame = (): GameDefinition => ({
   author: 'Author',
   palette: ['#000000', '#111111', '#222222'],
   backgroundMusicVideoId: undefined,
+  backgroundMusicVolume: 100,
   hideHud: false,
   disableSkills: false,
   roomSize: 8,
@@ -55,6 +56,7 @@ describe('StateDataManager', () => {
       author: game.author,
       palette: game.palette,
       backgroundMusicVideoId: undefined,
+      backgroundMusicVolume: 100,
       hideHud: false,
       disableSkills: false,
       disablePixelFont: false,
@@ -258,6 +260,20 @@ describe('StateDataManager', () => {
     expect(exported.backgroundMusicVideoId).toBe('t0ihNLLZNi0');
   });
 
+  it('exports a normalized backgroundMusicVolume', () => {
+    const game = makeGame();
+    game.backgroundMusicVolume = 75.8;
+    const manager = new StateDataManager({
+      game,
+      worldManager: {} as StateWorldManager,
+      objectManager: {} as StateObjectManager,
+      variableManager: {} as StateVariableManager,
+    });
+
+    const exported = manager.exportGameData() as { backgroundMusicVolume?: number };
+    expect(exported.backgroundMusicVolume).toBe(75);
+  });
+
   it('imports and trims backgroundMusicVideoId', () => {
     const game = makeGame();
     const manager = new StateDataManager({
@@ -313,6 +329,39 @@ describe('StateDataManager', () => {
     } as { backgroundMusicVideoId?: string });
 
     expect(game.backgroundMusicVideoId).toBeUndefined();
+  });
+
+  it.each([
+    [75, 75],
+    [-10, 0],
+    [140, 100],
+    [undefined, 100],
+    ['80', 100],
+    [Number.NaN, 100],
+  ])('imports normalized backgroundMusicVolume from %s', (input, expected) => {
+    const game = makeGame();
+    const manager = new StateDataManager({
+      game,
+      worldManager: {
+        normalizeRooms: vi.fn(() => []),
+        normalizeTileMaps: vi.fn(() => [{ ground: [[null]], overlay: [[null]] }]),
+        clampCoordinate: vi.fn((v: number) => v),
+        clampRoomIndex: vi.fn((v: number) => v),
+        setGame: vi.fn(),
+      } as unknown as StateWorldManager,
+      objectManager: {
+        normalizeObjects: vi.fn(() => []),
+        setGame: vi.fn(),
+      } as unknown as StateObjectManager,
+      variableManager: {
+        normalizeVariables: vi.fn(() => []),
+        setGame: vi.fn(),
+      } as unknown as StateVariableManager,
+    });
+
+    manager.importGameData({ backgroundMusicVolume: input } as { backgroundMusicVolume?: unknown });
+
+    expect(game.backgroundMusicVolume).toBe(expected);
   });
 });
 

@@ -6,6 +6,7 @@ import { EditorManagerModule } from './EditorManagerModule';
 import type { NpcDefinitionData } from '../../runtime/domain/entities/Npc';
 import {
     buildBackgroundMusicUrl,
+    normalizeBackgroundMusicVolume,
     normalizeBackgroundMusicVideoId,
 } from '../../runtime/infra/share/BackgroundMusicVideoId';
 
@@ -24,6 +25,7 @@ type ProjectGameSettings = {
     disableSkills?: boolean;
     disablePixelFont?: boolean;
     backgroundMusicVideoId?: string;
+    backgroundMusicVolume?: number;
 };
 
 class EditorUIController extends EditorManagerModule {
@@ -109,6 +111,18 @@ class EditorUIController extends EditorManagerModule {
         this.updateJSON();
     }
 
+    setBackgroundMusicVolume(value: number) {
+        const game = this.gameEngine.getGame() as ProjectGameSettings;
+        const volume = normalizeBackgroundMusicVolume(value);
+        game.backgroundMusicVolume = volume;
+        this.gameEngine.backgroundMusicEngine.syncFromGame(game);
+        if (typeof document !== 'undefined' && document.body.classList.contains('editor-mode')) {
+            this.gameEngine.backgroundMusicEngine.stop();
+        }
+        this.syncBackgroundMusicVolumeControls(volume);
+        this.updateJSON();
+    }
+
     setDisablePixelFont(active: boolean = false) {
         this.gameEngine.setDisablePixelFont(Boolean(active));
         bitmapFont.setDisabled(active);
@@ -133,6 +147,7 @@ class EditorUIController extends EditorManagerModule {
         if (this.dom.projectBackgroundMusicUrl) {
             this.dom.projectBackgroundMusicUrl.value = buildBackgroundMusicUrl(game.backgroundMusicVideoId);
         }
+        this.syncBackgroundMusicVolumeControls(normalizeBackgroundMusicVolume(game.backgroundMusicVolume));
         if (this.dom.projectDisablePixelFont) {
             this.dom.projectDisablePixelFont.checked = Boolean(game.disablePixelFont);
         }
@@ -231,6 +246,16 @@ class EditorUIController extends EditorManagerModule {
     normalizeAuthor(raw: string | null) {
         const text = String(raw || '').slice(0, 18).replace(/\s+/g, ' ').trim();
         return text;
+    }
+
+    private syncBackgroundMusicVolumeControls(volume: number): void {
+        const text = `${volume}%`;
+        if (this.dom.projectBackgroundMusicVolume) {
+            this.dom.projectBackgroundMusicVolume.value = String(volume);
+        }
+        if (this.dom.projectBackgroundMusicVolumeValue) {
+            this.dom.projectBackgroundMusicVolumeValue.textContent = text;
+        }
     }
 }
 

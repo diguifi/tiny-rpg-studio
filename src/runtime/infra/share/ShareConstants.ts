@@ -39,9 +39,10 @@ class ShareConstants {
     static get VERSION_30() { return 30; }
     static get VERSION_31() { return 31; }
     static get VERSION_32() { return 32; }
+    static get VERSION_33() { return 33; }
 
     static get VERSION() {
-        return ShareConstants.VERSION_32;
+        return ShareConstants.VERSION_33;
     }
 
     static get LEGACY_VERSION() {
@@ -148,6 +149,10 @@ class ShareConstants {
 
     static get NEW_OBJECTS_VERSION() {
         return ShareConstants.VERSION_32;
+    }
+
+    static get BACKGROUND_MUSIC_VOLUME_VERSION() {
+        return ShareConstants.VERSION_33;
     }
 
     static get MATRIX_SIZE() {
@@ -263,7 +268,8 @@ class ShareConstants {
                 ShareConstants.VERSION_29,
                 ShareConstants.VERSION_30,
                 ShareConstants.VERSION_31,
-                ShareConstants.VERSION_32
+                ShareConstants.VERSION_32,
+                ShareConstants.VERSION_33
             ]);
         }
         return this._supportedVersions;

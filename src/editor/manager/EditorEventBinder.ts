@@ -42,6 +42,7 @@ class EditorEventBinder extends EditorManagerModule {
             projectHideHud,
             projectDisableSkills,
             projectBackgroundMusicUrl,
+            projectBackgroundMusicVolume,
             projectDisablePixelFont,
             projectShowVariableLinks,
             shareUrlInput
@@ -103,6 +104,10 @@ class EditorEventBinder extends EditorManagerModule {
         projectBackgroundMusicUrl?.addEventListener('input', (ev: Event) => {
             const target = ev.target as HTMLInputElement;
             manager.setBackgroundMusicUrl(target.value);
+        });
+        projectBackgroundMusicVolume?.addEventListener('input', (ev: Event) => {
+            const target = ev.target as HTMLInputElement;
+            manager.setBackgroundMusicVolume(Number(target.value));
         });
         projectDisablePixelFont?.addEventListener('change', (ev: Event) => {
             const target = ev.target as HTMLInputElement;

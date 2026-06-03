@@ -61,6 +61,8 @@ class EditorDomCache {
     projectHideHud: HTMLInputElement | null;
     projectDisableSkills: HTMLInputElement | null;
     projectBackgroundMusicUrl: HTMLInputElement | null;
+    projectBackgroundMusicVolume: HTMLInputElement | null;
+    projectBackgroundMusicVolumeValue: HTMLElement | null;
     projectDisablePixelFont: HTMLInputElement | null;
     projectShowVariableLinks: HTMLInputElement | null;
     colorPickerModal: HTMLElement | null;
@@ -160,6 +162,8 @@ class EditorDomCache {
             this.projectHideHud = null;
             this.projectDisableSkills = null;
             this.projectBackgroundMusicUrl = null;
+            this.projectBackgroundMusicVolume = null;
+            this.projectBackgroundMusicVolumeValue = null;
             this.projectDisablePixelFont = null;
             this.projectShowVariableLinks = null;
             this.colorPickerModal = null;
@@ -248,6 +252,8 @@ class EditorDomCache {
         this.projectHideHud = root.querySelector('#project-hide-hud') as HTMLInputElement | null;
         this.projectDisableSkills = root.querySelector('#project-disable-skills') as HTMLInputElement | null;
         this.projectBackgroundMusicUrl = root.querySelector('#project-background-music-url') as HTMLInputElement | null;
+        this.projectBackgroundMusicVolume = root.querySelector('#project-background-music-volume') as HTMLInputElement | null;
+        this.projectBackgroundMusicVolumeValue = root.querySelector('#project-background-music-volume-value') as HTMLElement | null;
         this.projectDisablePixelFont = root.querySelector('#project-disable-pixel-font') as HTMLInputElement | null;
         this.projectShowVariableLinks = root.querySelector('#project-show-variable-links') as HTMLInputElement | null;
         this.colorPickerModal = root.querySelector('#color-picker-modal') as HTMLElement | null;
