@@ -21,7 +21,7 @@ type ImportData = {
     palette?: string[];
     customPalette?: string[];
     backgroundMusicVideoId?: string;
-    backgroundMusicVolume?: number;
+    backgroundMusicVolume?: unknown;
     hideHud?: boolean;
     disableSkills?: boolean;
     disablePixelFont?: boolean;
