@@ -92,6 +92,7 @@ export class OnlineStateBroadcaster {
             }
         }
         for (const [id, prev] of Object.entries(this.lastEnemySnapshot)) {
+            if (!prev) continue;
             if (aliveEnemyIds.has(id)) continue;
             changedEnemies[id] = { ...prev, alive: false };
             delete this.lastEnemySnapshot[id];
