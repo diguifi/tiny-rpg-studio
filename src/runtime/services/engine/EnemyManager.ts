@@ -39,6 +39,12 @@ class EnemyManager {
   combatStunManager: CombatStunManagerApi | null;
   playerManager: StatePlayerManagerApi | null;
   windupTimers: Set<ReturnType<typeof setTimeout>>;
+  private windupTimersByEnemy: Map<string, Set<ReturnType<typeof setTimeout>>> = new Map();
+  activeRooms: ReadonlySet<number> | null = null;
+  private remotePlayers: Array<{ id: string; x: number; y: number; roomIndex: number; alive?: boolean }> = [];
+  onEnemyAttackedRemotePlayer: ((playerId: string, damage: number) => void) | null = null;
+  onGuestAttack: ((enemyId: string) => void) | null = null;
+  onEnemyStateChanged: (() => void) | null = null;
 
   constructor(gameState: GameStateApi, renderer: RendererApi, tileManager: TileManagerApi, options: EnemyManagerOptions = {}) {
     this.gameState = gameState;
@@ -57,6 +63,7 @@ class EnemyManager {
 
     this.combatStunManager = options.combatStunManager ?? null;
     this.playerManager = options.playerManager ?? null;
+    this.onEnemyStateChanged = options.onEnemyStateChanged ?? null;
     this.windupTimers = new Set();
 
     // Initialize CombatManager with callbacks
@@ -67,6 +74,7 @@ class EnemyManager {
       playerManager: this.playerManager,
       onEnemyDefeated: (enemyId: string, enemy: EnemyState) => {
         this.handleEnemyDefeated(enemyId, enemy);
+        options.onEnemyDefeated?.(enemyId, enemy);
       },
       onCheckAllEnemiesCleared: () => {
         this.checkAllEnemiesCleared();
@@ -130,6 +138,88 @@ class EnemyManager {
     return `enemy-${Math.random().toString(36).slice(2, 10)}`;
   }
 
+  setActiveRooms(rooms: ReadonlySet<number> | null): void {
+    this.activeRooms = rooms;
+  }
+
+  setRemotePlayers(players: Array<{ id: string; x: number; y: number; roomIndex: number; alive?: boolean }>): void {
+    this.remotePlayers = players;
+  }
+
+  private findNearestTarget(
+    enemy: EnemyState,
+    localPlayer: { x: number; y: number; roomIndex: number } | null,
+  ): { x: number; y: number; roomIndex: number; remoteId?: string } | null {
+    type Candidate = { x: number; y: number; roomIndex: number; remoteId?: string; dist: number };
+    const candidates: Candidate[] = [];
+    if (localPlayer && localPlayer.roomIndex === enemy.roomIndex) {
+      const dist = Math.abs(localPlayer.x - enemy.x) + Math.abs(localPlayer.y - enemy.y);
+      candidates.push({ x: localPlayer.x, y: localPlayer.y, roomIndex: localPlayer.roomIndex, dist });
+    }
+    for (const rp of this.remotePlayers) {
+      if (rp.roomIndex === enemy.roomIndex && rp.alive !== false) {
+        const dist = Math.abs(rp.x - enemy.x) + Math.abs(rp.y - enemy.y);
+        candidates.push({ x: rp.x, y: rp.y, roomIndex: rp.roomIndex, remoteId: rp.id, dist });
+      }
+    }
+    if (!candidates.length) return null;
+    return candidates.reduce((a, b) => (a.dist <= b.dist ? a : b));
+  }
+
+  private trackWindupTimer(enemyId: string | undefined, timer: ReturnType<typeof setTimeout>): void {
+    this.windupTimers.add(timer);
+    if (enemyId) {
+      if (!this.windupTimersByEnemy.has(enemyId)) this.windupTimersByEnemy.set(enemyId, new Set());
+      this.windupTimersByEnemy.get(enemyId)!.add(timer);
+    }
+  }
+
+  cancelWindupTimersForEnemy(enemyId: string): void {
+    const timers = this.windupTimersByEnemy.get(enemyId);
+    if (!timers) return;
+    for (const t of timers) {
+      clearTimeout(t);
+      this.windupTimers.delete(t);
+    }
+    this.windupTimersByEnemy.delete(enemyId);
+  }
+
+  private triggerCollisionWithTarget(
+    enemy: EnemyState,
+    enemyIndex: number,
+    target: { x: number; y: number; roomIndex: number; remoteId?: string },
+  ): void {
+    if (target.remoteId) {
+      const remoteId = target.remoteId;
+      if (enemy.id) {
+        this.triggerEnemyWindup(enemy.id, { x: enemy.x, y: enemy.y }, { x: target.x, y: target.y });
+        const timer = setTimeout(() => {
+          this.windupTimers.delete(timer);
+          this.windupTimersByEnemy.get(enemy.id)?.delete(timer);
+          // Guard: don't attack if the enemy has died in the meantime
+          if (EnemyDefinitions.isDying(enemy)) return;
+          this.onEnemyAttackedRemotePlayer?.(remoteId, 1);
+        }, GameConfig.combat.lungeAnimationDuration);
+        this.trackWindupTimer(enemy.id, timer);
+      } else {
+        this.onEnemyAttackedRemotePlayer?.(remoteId, 1);
+      }
+    } else {
+      if (enemy.id) {
+        this.triggerEnemyWindup(enemy.id, { x: enemy.x, y: enemy.y }, { x: target.x, y: target.y });
+        const timer = setTimeout(() => {
+          this.windupTimers.delete(timer);
+          this.windupTimersByEnemy.get(enemy.id)?.delete(timer);
+          if (EnemyDefinitions.isDying(enemy)) return;
+          this.handleEnemyCollision(enemyIndex, { initiator: 'enemy' });
+        }, GameConfig.combat.lungeAnimationDuration);
+        this.trackWindupTimer(enemy.id, timer);
+      } else {
+        this.handleEnemyCollision(enemyIndex, { initiator: 'enemy' });
+      }
+    }
+  }
+
   start(): void {
     if (this.enemyMoveTimer) {
       clearInterval(this.enemyMoveTimer);
@@ -151,6 +241,7 @@ class EnemyManager {
     // Cancel all pending wind-up timers
     this.windupTimers.forEach(timer => clearTimeout(timer));
     this.windupTimers.clear();
+    this.windupTimersByEnemy.clear();
   }
 
   tick(): void {
@@ -175,10 +266,18 @@ class EnemyManager {
         continue;
       }
 
+      // In online-host mode, skip enemies in rooms with no active players
+      if (this.activeRooms !== null && !this.activeRooms.has(enemy.roomIndex)) {
+        continue;
+      }
+
+      // Use nearest player (local or remote) as the chase/movement target
+      const nearestTarget = this.findNearestTarget(enemy, player) ?? player;
+
       const result =
         enemy.playerInVision
-          ? this.tryChaseEnemy(enemy, i, game, player, enemies)
-          : this.tryMoveEnemy(enemies, i, game, player);
+          ? this.tryChaseEnemy(enemy, i, game, nearestTarget, enemies)
+          : this.tryMoveEnemy(enemies, i, game, nearestTarget);
       if (result === EnemyMovementResultConst.Moved) {
         moved = true;
       } else if (result === EnemyMovementResultConst.Collided) {
@@ -189,6 +288,7 @@ class EnemyManager {
 
     if (moved) {
       this.renderer.draw();
+      this.onEnemyStateChanged?.();
     }
   }
 
@@ -297,7 +397,12 @@ class EnemyManager {
     return null; // No free direction found
   }
 
-  tryMoveEnemy(enemies: EnemyState[], index: number, game: GameData, player: PlayerState | null): EnemyMovementResult {
+  tryMoveEnemy(
+    enemies: EnemyState[],
+    index: number,
+    game: GameData,
+    player: { x: number; y: number; roomIndex: number; remoteId?: string } | null,
+  ): EnemyMovementResult {
     if (index < 0 || index >= enemies.length) {
       return EnemyMovementResultConst.None;
     }
@@ -324,21 +429,9 @@ class EnemyManager {
     const target = this.getTargetPosition(enemy, dir);
     const roomIndex = enemy.roomIndex;
 
-    // Don't move into player's tile - trigger collision combat
+    // Don't move into any player's tile - trigger collision combat
     if (player && player.roomIndex === roomIndex && player.x === target.x && player.y === target.y) {
-      // Trigger wind-up animation before attack
-      if (enemy.id) {
-        this.triggerEnemyWindup(enemy.id, { x: enemy.x, y: enemy.y }, { x: player.x, y: player.y });
-        // Wait for wind-up animation to complete before applying damage (same as player)
-        const timer = setTimeout(() => {
-          this.windupTimers.delete(timer);
-          this.handleEnemyCollision(index, { initiator: 'enemy' });
-        }, GameConfig.combat.lungeAnimationDuration);
-        this.windupTimers.add(timer);
-      } else {
-        // No ID, trigger immediately
-        this.handleEnemyCollision(index, { initiator: 'enemy' });
-      }
+      this.triggerCollisionWithTarget(enemy, index, player);
       return EnemyMovementResultConst.Collided;
     }
 
@@ -354,20 +447,9 @@ class EnemyManager {
         // Try to move in the new direction
         const newTarget = this.getTargetPosition(enemy, freeDirection);
 
-        // Don't move into player's tile
+        // Don't move into any player's tile
         if (player && player.roomIndex === roomIndex && player.x === newTarget.x && player.y === newTarget.y) {
-          if (enemy.id) {
-            this.triggerEnemyWindup(enemy.id, { x: enemy.x, y: enemy.y }, { x: player.x, y: player.y });
-            // Wait for wind-up animation to complete before applying damage (same as player)
-            const timer = setTimeout(() => {
-              this.windupTimers.delete(timer);
-              this.handleEnemyCollision(index, { initiator: 'enemy' });
-            }, GameConfig.combat.lungeAnimationDuration);
-            this.windupTimers.add(timer);
-          } else {
-            // No ID, trigger immediately
-            this.handleEnemyCollision(index, { initiator: 'enemy' });
-          }
+          this.triggerCollisionWithTarget(enemy, index, player);
           return EnemyMovementResultConst.Collided;
         }
 
@@ -415,7 +497,7 @@ class EnemyManager {
     enemy: EnemyState,
     index: number,
     game: GameData,
-    player: PlayerState,
+    player: { x: number; y: number; roomIndex: number; remoteId?: string },
     enemies: EnemyState[],
   ): EnemyMovementResult {
     const directions = this.getChaseDirections(enemy, player);
@@ -423,21 +505,9 @@ class EnemyManager {
       const target = this.getTargetPosition(enemy, direction);
       const roomIndex = enemy.roomIndex;
 
-      // Don't move into player's tile - trigger collision combat
+      // Don't move into any player's tile - trigger collision combat
       if (player.roomIndex === roomIndex && player.x === target.x && player.y === target.y) {
-        // Trigger wind-up animation before attack
-        if (enemy.id) {
-          this.triggerEnemyWindup(enemy.id, { x: enemy.x, y: enemy.y }, { x: player.x, y: player.y });
-          // Wait for wind-up animation to complete before applying damage (same as player)
-          const timer = setTimeout(() => {
-            this.windupTimers.delete(timer);
-            this.handleEnemyCollision(index, { initiator: 'enemy' });
-          }, GameConfig.combat.lungeAnimationDuration);
-          this.windupTimers.add(timer);
-        } else {
-          // No ID, trigger immediately
-          this.handleEnemyCollision(index, { initiator: 'enemy' });
-        }
+        this.triggerCollisionWithTarget(enemy, index, player);
         return EnemyMovementResultConst.Collided;
       }
 
@@ -456,7 +526,7 @@ class EnemyManager {
     return EnemyMovementResultConst.None;
   }
 
-  moveChasingEnemies(player: PlayerState | null): void {
+  moveChasingEnemies(player: { x: number; y: number; roomIndex: number; remoteId?: string } | null): void {
     if (!player) return;
     const enemies = this.getActiveEnemies();
     const game = this.gameState.getGame?.();
@@ -476,6 +546,7 @@ class EnemyManager {
     }
     if (moved) {
       this.renderer.draw();
+      this.onEnemyStateChanged?.();
     }
   }
 
@@ -483,7 +554,7 @@ class EnemyManager {
    * Check if enemy can see player based on directional vision
    * Enemies can ONLY see in the direction they are facing - NEVER 360°
    */
-  private canEnemySeePlayer(enemy: EnemyState, player: PlayerState): boolean {
+  private canEnemySeePlayer(enemy: EnemyState, player: { x: number; y: number }): boolean {
     // Get last known positions (default to current position if never set)
     const lastX = typeof enemy.lastX === 'number' ? enemy.lastX : enemy.x;
     const lastY = typeof enemy.lastY === 'number' ? enemy.lastY : enemy.y;
@@ -531,16 +602,19 @@ class EnemyManager {
         continue;
       }
 
-      if (enemy.roomIndex !== player.roomIndex) {
+      // Use nearest player (local or remote) for vision check
+      const target = this.findNearestTarget(enemy, player);
+      if (!target) {
         enemy.playerInVision = false;
         enemy.alertStart = null;
         enemy.alertUntil = null;
         continue;
       }
-      const dx = Math.abs(player.x - enemy.x);
-      const dy = Math.abs(player.y - enemy.y);
+
+      const dx = Math.abs(target.x - enemy.x);
+      const dy = Math.abs(target.y - enemy.y);
       const inRange = dx <= visionRange && dy <= visionRange;
-      const canSee = this.canEnemySeePlayer(enemy, player);
+      const canSee = this.canEnemySeePlayer(enemy, target);
       const inVision = inRange && canSee;
       if (inVision) {
         if (!enemy.playerInVision) {
@@ -556,7 +630,7 @@ class EnemyManager {
     }
   }
 
-  private getChaseDirections(enemy: EnemyState, player: PlayerState): number[][] {
+  private getChaseDirections(enemy: EnemyState, player: { x: number; y: number }): number[][] {
     const dx = player.x - enemy.x;
     const dy = player.y - enemy.y;
     const candidate: number[][] = [];
@@ -633,6 +707,15 @@ class EnemyManager {
       this.handleEnemyCollision(enemyIndex, { initiator: 'enemy' });
       return true;
     }
+    // Check remote players
+    for (const rp of this.remotePlayers) {
+      if (rp.roomIndex === roomIndex && rp.x === x && rp.y === y) {
+        const enemies = this.gameState.getEnemies();
+        const enemy = enemies[enemyIndex];
+        if (enemy) this.triggerCollisionWithTarget(enemy, enemyIndex, { ...rp, remoteId: rp.id });
+        return true;
+      }
+    }
     return false;
   }
 
@@ -640,6 +723,12 @@ class EnemyManager {
     const enemies = this.gameState.getEnemies();
     const index = enemies.findIndex((enemy) => enemy.roomIndex === roomIndex && enemy.x === x && enemy.y === y);
     if (index === -1) return false;
+    const enemy = enemies[index];
+    // In online-guest mode, relay attack to Host instead of processing locally
+    if (this.onGuestAttack && enemy.id) {
+      this.onGuestAttack(enemy.id);
+      return true;
+    }
     this.handleEnemyCollision(index);
     return true;
   }

@@ -21,6 +21,8 @@ type EditorGameFixture = {
   disableSkills: boolean;
   disablePixelFont?: boolean;
   backgroundMusicVideoId?: string;
+  online?: { enabled: boolean; spawnPoints?: Array<{ role: string; roomIndex: number; x: number; y: number }> };
+  start?: { roomIndex: number; x: number; y: number };
 };
 
 type BackgroundMusicEngineFixture = {
@@ -47,6 +49,8 @@ function makeManager(stateOverrides: Record<string, unknown> = {}) {
   const projectDisableSkills = document.createElement('input');
   projectDisableSkills.type = 'checkbox';
   const projectBackgroundMusicUrl = makeInput('');
+  const projectOnlineControls = document.createElement('div');
+  const onlineP2SpawnLabel = document.createElement('span');
   const jsonArea = document.createElement('textarea');
   const projectTabDevelopment = document.createElement('button');
   projectTabDevelopment.dataset.projectTabButton = 'development';
@@ -70,6 +74,8 @@ function makeManager(stateOverrides: Record<string, unknown> = {}) {
       projectHideHud,
       projectDisableSkills,
       projectBackgroundMusicUrl,
+      projectOnlineControls,
+      onlineP2SpawnLabel,
       jsonArea,
       projectTabButtons: [projectTabDevelopment, projectTabTesting],
       projectTabPanels: [projectPanelDevelopment, projectPanelTesting],
@@ -79,6 +85,7 @@ function makeManager(stateOverrides: Record<string, unknown> = {}) {
     get dom() { return this.domCache; },
     renderService: {
       renderVariableUsage: vi.fn(), renderSkillList: vi.fn(), renderTestTools: vi.fn(),
+      renderEditor: vi.fn(),
       updateNpcForm: vi.fn(),
     },
     gameEngine: {
@@ -112,6 +119,8 @@ function makeManager(stateOverrides: Record<string, unknown> = {}) {
       this.renderService.renderSkillList();
       this.renderService.renderTestTools();
     }),
+    renderObjectCatalog: vi.fn(),
+    objectService: { togglePlacement: vi.fn() },
     renderAll: vi.fn(),
   };
 }
@@ -308,6 +317,31 @@ describe('EditorUIController', () => {
 
     expect(mgr.gameEngine.backgroundMusicEngine.stop).toHaveBeenCalled();
     document.body.classList.remove('editor-mode');
+  });
+
+  it('setOnlineEnabled creates the player 2 spawn beside player 1', () => {
+    const mgr = makeManager();
+    const game: EditorGameFixture = {
+      title: 'Online',
+      author: 'Dev',
+      hideHud: false,
+      disableSkills: false,
+      online: { enabled: false },
+      start: { roomIndex: 2, x: 4, y: 5 }
+    };
+    mgr.gameEngine.getGame.mockReturnValue(game);
+    const ctrl = makeController(mgr);
+
+    ctrl.setOnlineEnabled(true);
+
+    expect(game.online).toEqual({
+      enabled: true,
+      spawnPoints: [{ role: 'p2', roomIndex: 2, x: 5, y: 5 }]
+    });
+    expect(mgr.domCache.projectOnlineControls.style.display).toBe('block');
+    expect(mgr.domCache.onlineP2SpawnLabel.textContent).toBe('sala 2 (5, 5)');
+    expect(mgr.renderObjectCatalog).toHaveBeenCalled();
+    expect(mgr.renderService.renderEditor).toHaveBeenCalled();
   });
 
   // ─── syncUI ──────────────────────────────────────────────────────────

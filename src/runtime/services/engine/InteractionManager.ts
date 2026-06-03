@@ -102,6 +102,8 @@ type GameStateApi = {
 type Options = {
   onPlayerVictory?: () => void;
   onTrapKill?: () => void;
+  onItemCollected?: (itemId: string, roomIndex: number) => void;
+  onObjectTriggered?: (objectId: string, roomIndex: number, newState: boolean) => void;
 };
 
 class InteractionManager {
@@ -145,6 +147,8 @@ class InteractionManager {
 
       item.collected = true;
       soundEngine.play('itemPickup');
+      const itemId = (item as unknown as { id?: string }).id ?? `item-${item.roomIndex}-${item.x}-${item.y}`;
+      this.options?.onItemCollected?.(itemId, item.roomIndex);
       const text = typeof item.text === 'string' ? item.text : this.getInteractionText('objects.item.pickup', '');
       if (text) {
         this.dialogManager.showDialog(text);
@@ -158,7 +162,11 @@ class InteractionManager {
     for (const object of objects) {
       if (object.x !== player.x || object.y !== player.y) continue;
 
-      if (this.handleCollectibleObject(object)) break;
+      if (this.handleCollectibleObject(object)) {
+        const objId = (object as unknown as { id?: string }).id ?? `obj-${object.roomIndex}-${object.x}-${object.y}`;
+        this.options?.onItemCollected?.(objId, object.roomIndex);
+        break;
+      }
       if (this.handleTrap(object)) break;
       if (this.handleChest(object)) break;
       if (this.handleSwitch(object)) break;
@@ -323,6 +331,15 @@ class InteractionManager {
     return value || fallback || '';
   }
 
+  handleSwitchInteractAt(x: number, y: number, roomIndex: number): boolean {
+    const objects = this.gameState.getObjectsForRoom?.(roomIndex) || [];
+    for (const object of objects) {
+      if (object.x !== x || object.y !== y) continue;
+      if (this.handleSwitch(object)) return true;
+    }
+    return false;
+  }
+
   handleSwitch(object: GameObjectState): boolean {
     const OT = this.types;
     if (object.type !== OT.SWITCH) return false;
@@ -336,6 +353,8 @@ class InteractionManager {
     if (variableId) {
       this.gameState.setVariableValue?.(variableId, object.on);
     }
+    const objId = (object as unknown as { id?: string }).id ?? `obj-${object.roomIndex}-${object.x}-${object.y}`;
+    this.options?.onObjectTriggered?.(objId, object.roomIndex, Boolean(object.on));
     return true;
   }
 

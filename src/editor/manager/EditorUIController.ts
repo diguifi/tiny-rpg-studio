@@ -8,6 +8,8 @@ import {
     buildBackgroundMusicUrl,
     normalizeBackgroundMusicVideoId,
 } from '../../runtime/infra/share/BackgroundMusicVideoId';
+import { ShareUrlHelper } from '../../runtime/infra/share/ShareUrlHelper';
+import { ONLINE_PLAYER_START_2_TYPE } from '../modules/EditorObjectService';
 
 type SpriteInstance = {
     id: string;
@@ -17,6 +19,8 @@ type SpriteInstance = {
     textKey?: string | null;
 };
 
+import type { OnlineConfig } from '../../types/gameState';
+
 type ProjectGameSettings = {
     title?: string;
     author?: string;
@@ -24,6 +28,8 @@ type ProjectGameSettings = {
     disableSkills?: boolean;
     disablePixelFont?: boolean;
     backgroundMusicVideoId?: string;
+    online?: OnlineConfig;
+    start?: { x: number; y: number; roomIndex: number };
 };
 
 class EditorUIController extends EditorManagerModule {
@@ -109,6 +115,75 @@ class EditorUIController extends EditorManagerModule {
         this.updateJSON();
     }
 
+    setOnlineEnabled(enabled: boolean): void {
+        const game = this.gameEngine.getGame();
+        if (!game.online) game.online = { enabled: false };
+        game.online.enabled = enabled;
+        if (enabled) {
+            this.ensureP2SpawnBesidePlayer1(game as ProjectGameSettings);
+        }
+        if (this.dom.projectOnlineControls) {
+            this.dom.projectOnlineControls.style.display = enabled ? 'block' : 'none';
+        }
+        if (!enabled && this.dom.onlineServerUrlRow) {
+            this.dom.onlineServerUrlRow.style.display = 'none';
+        }
+        if (!enabled && this.state.placingObjectType === ONLINE_PLAYER_START_2_TYPE) {
+            this.manager.objectService.togglePlacement(ONLINE_PLAYER_START_2_TYPE, true);
+        }
+        this.manager.renderObjectCatalog();
+        this.manager.renderService.renderEditor();
+        this.syncP2SpawnLabel();
+        this.updateJSON();
+    }
+
+    private ensureP2SpawnBesidePlayer1(game: ProjectGameSettings): void {
+        if (!game.online?.enabled) return;
+        const start = game.start ?? { x: 1, y: 1, roomIndex: 0 };
+        const candidates = [
+            { x: start.x + 1, y: start.y },
+            { x: start.x - 1, y: start.y },
+            { x: start.x, y: start.y + 1 },
+            { x: start.x, y: start.y - 1 },
+        ];
+        const p2 = candidates.find((pos) => pos.x >= 0 && pos.x <= 7 && pos.y >= 0 && pos.y <= 7)
+            ?? { x: Math.min(7, Math.max(0, start.x)), y: Math.min(7, Math.max(0, start.y)) };
+        game.online.spawnPoints = [{ role: 'p2', roomIndex: start.roomIndex, x: p2.x, y: p2.y }];
+    }
+
+    setP2Spawn(): void {
+        const game = this.gameEngine.getGame() as ProjectGameSettings & { start?: { x: number; y: number; roomIndex: number } };
+        if (!game.online?.enabled) return;
+        const start = game.start ?? { x: 1, y: 1, roomIndex: 0 };
+        game.online.spawnPoints = [{ role: 'p2', roomIndex: start.roomIndex, x: start.x, y: start.y }];
+        this.syncP2SpawnLabel();
+        this.updateJSON();
+    }
+
+    private syncP2SpawnLabel(): void {
+        const game = this.gameEngine.getGame() as ProjectGameSettings;
+        const spawn = game.online?.spawnPoints?.[0];
+        if (this.dom.onlineP2SpawnLabel) {
+            this.dom.onlineP2SpawnLabel.textContent = spawn
+                ? `sala ${spawn.roomIndex} (${spawn.x}, ${spawn.y})`
+                : TextResources.get('project.online.spawnUnset', 'não definido') as string;
+        }
+    }
+
+    startOnlineServer(): void {
+        const game = this.gameEngine.getGame();
+        if (!game.online?.enabled) return;
+        const guid = crypto.randomUUID();
+        const gameData = this.gameEngine.exportGameData() as Record<string, unknown>;
+        const shareUrl = new URL(ShareUrlHelper.buildShareUrl(gameData));
+        shareUrl.searchParams.set('online-mode', guid);
+        const finalUrl = shareUrl.toString();
+        if (this.dom.onlineServerUrl) this.dom.onlineServerUrl.value = finalUrl;
+        if (this.dom.onlineServerUrlRow) this.dom.onlineServerUrlRow.style.display = 'block';
+        const clipboard = Reflect.get(navigator, 'clipboard') as Clipboard | undefined;
+        if (clipboard) void clipboard.writeText(finalUrl).catch(() => undefined);
+    }
+
     setDisablePixelFont(active: boolean = false) {
         this.gameEngine.setDisablePixelFont(Boolean(active));
         bitmapFont.setDisabled(active);
@@ -138,6 +213,13 @@ class EditorUIController extends EditorManagerModule {
         }
         bitmapFont.setDisabled(Boolean(game.disablePixelFont));
         setEditorFontDisabled(Boolean(game.disablePixelFont));
+        if (this.dom.projectOnlineEnabled) {
+            this.dom.projectOnlineEnabled.checked = Boolean(game.online?.enabled);
+        }
+        if (this.dom.projectOnlineControls) {
+            this.dom.projectOnlineControls.style.display = game.online?.enabled ? 'block' : 'none';
+        }
+        this.syncP2SpawnLabel();
         this.updateProjectTabs();
         this.updateJSON();
     }

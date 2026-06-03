@@ -386,6 +386,58 @@ describe('StateDataManager - customSprites', () => {
     expect(game.customSprites).toBeUndefined();
   });
 
+  it('exports online config when enabled', () => {
+    const game = makeGame();
+    game.online = { enabled: true, spawnPoints: [{ role: 'p2', roomIndex: 0, x: 2, y: 3 }] };
+    const manager = new StateDataManager({ game, worldManager: {} as StateWorldManager, objectManager: {} as StateObjectManager, variableManager: {} as StateVariableManager });
+
+    const exported = manager.exportGameData();
+    expect(exported.online).toEqual({ enabled: true, spawnPoints: [{ role: 'p2', roomIndex: 0, x: 2, y: 3 }] });
+  });
+
+  it('omits online from export when disabled', () => {
+    const game = makeGame();
+    const manager = new StateDataManager({ game, worldManager: {} as StateWorldManager, objectManager: {} as StateObjectManager, variableManager: {} as StateVariableManager });
+
+    const exported = manager.exportGameData();
+    expect(exported.online).toBeUndefined();
+  });
+
+  const makeImportManager = (game: ReturnType<typeof makeGame>) => new StateDataManager({
+    game,
+    worldManager: {
+      normalizeRooms: vi.fn(() => []),
+      normalizeTileMaps: vi.fn(() => [{ ground: [[null]], overlay: [[null]] }]),
+      clampCoordinate: vi.fn((v: number) => v),
+      clampRoomIndex: vi.fn((v: number) => v),
+      setGame: vi.fn(),
+    } as unknown as StateWorldManager,
+    objectManager: { normalizeObjects: vi.fn(() => []), setGame: vi.fn() } as unknown as StateObjectManager,
+    variableManager: { normalizeVariables: vi.fn(() => []), setGame: vi.fn() } as unknown as StateVariableManager,
+  });
+
+  it('imports online config and validates spawn points', () => {
+    const game = makeGame();
+    const manager = makeImportManager(game);
+
+    manager.importGameData({
+      online: { enabled: true, spawnPoints: [{ role: 'p2', roomIndex: 1, x: 5, y: 6 }] }
+    });
+
+    expect(game.online?.enabled).toBe(true);
+    expect(game.online?.spawnPoints).toHaveLength(1);
+    expect(game.online?.spawnPoints?.[0]).toMatchObject({ role: 'p2', roomIndex: 1, x: 5, y: 6 });
+  });
+
+  it('clears online when importGameData receives no online field', () => {
+    const game = makeGame();
+    game.online = { enabled: true, spawnPoints: [] };
+    const manager = makeImportManager(game);
+
+    manager.importGameData({});
+    expect(game.online).toBeUndefined();
+  });
+
   it('clears the field when importGameData receives no customSprites', () => {
     const game = makeGame();
     game.customSprites = [{ group: 'npc', key: 'x', frames: [] }];

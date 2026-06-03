@@ -44,6 +44,9 @@ class EditorEventBinder extends EditorManagerModule {
             projectBackgroundMusicUrl,
             projectDisablePixelFont,
             projectShowVariableLinks,
+            projectOnlineEnabled,
+            btnStartOnlineServer,
+            btnSetP2Spawn,
             shareUrlInput
         } = this.dom;
 
@@ -113,6 +116,12 @@ class EditorEventBinder extends EditorManagerModule {
             manager.state.showVariableLinks = target.checked;
             manager.renderService.renderEditor();
         });
+        projectOnlineEnabled?.addEventListener('change', (ev: Event) => {
+            const target = ev.target as HTMLInputElement;
+            manager.setOnlineEnabled(target.checked);
+        });
+        btnSetP2Spawn?.addEventListener('click', () => manager.setP2Spawn());
+        btnStartOnlineServer?.addEventListener('click', () => manager.startOnlineServer());
         shareUrlInput?.addEventListener('focus', () => shareUrlInput.select());
         shareUrlInput?.addEventListener('click', () => shareUrlInput.select());
         projectTestSkillList?.addEventListener('change', (ev: Event) => {

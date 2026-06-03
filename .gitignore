@@ -33,6 +33,12 @@ playwright-report/
 .env
 .env.*
 !.env.example
+
+# PartyKit local dev server state
+.partykit/state/
+
+# Temporary screenshots
+tmp-screenshots/
 .claude/settings.local.json
 .tools/butler/
 

@@ -40,6 +40,7 @@ type ShareGameData = {
     customSprites?: CustomSpriteEntryLike[];
     skillOrder?: string[];
     skillCustomizations?: SkillCustomizationMap;
+    online?: unknown;
 };
 
 class ShareEncoder {
@@ -563,6 +564,12 @@ class ShareEncoder {
         const skillCustomizations = SkillDefinitions.sanitizeCustomizationMap(gameData?.skillCustomizations);
         if (skillCustomizations) {
             parts.push('C' + ShareTextCodec.encodeText(JSON.stringify(skillCustomizations)));
+        }
+
+        // Online config
+        const online = gameData?.online as { enabled?: boolean; spawnPoints?: unknown[] } | null | undefined;
+        if (online?.enabled) {
+            parts.push('8' + ShareTextCodec.encodeText(JSON.stringify(online)));
         }
 
         // Custom Sprites

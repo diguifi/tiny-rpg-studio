@@ -15,6 +15,7 @@ import { TileDefinitions } from '../domain/definitions/TileDefinitions';
 import { SkillDefinitions } from '../domain/definitions/SkillDefinitions';
 import { GameConfig } from '../../config/GameConfig';
 import type { SkillCustomizationMap } from '../../types/gameState';
+import type { OnlineMode } from '../../types/onlineMode';
 import { BackgroundMusicEngine } from './BackgroundMusicEngine';
 
 type IntroData = { title: string; author: string };
@@ -44,6 +45,7 @@ type GameData = {
   disablePixelFont?: boolean;
   skillCustomizations?: SkillCustomizationMap;
   rooms?: unknown[];
+  online?: import('../../types/gameState').OnlineConfig;
 };
 
 export class GameEngine {
@@ -61,6 +63,15 @@ export class GameEngine {
   backgroundMusicEngine: BackgroundMusicEngine;
   isDestroyed: boolean;
   awaitingRestart: boolean;
+  onlineMode: OnlineMode;
+  onOnlinePlayerDefeated: (() => void) | null = null;
+  onOnlineGameCompletion: (() => void) | null = null;
+  onOnlineMove: ((dx: number, dy: number) => void) | null = null;
+  onOnlineInteract: (() => void) | null = null;
+  onOnlineEnemyDied: ((enemyId: string, roomIndex: number) => void) | null = null;
+  onOnlineItemPicked: ((itemId: string, roomIndex: number) => void) | null = null;
+  onOnlineObjectTriggered: ((objectId: string, roomIndex: number, newState: boolean) => void) | null = null;
+  onOnlineStateChanged: (() => void) | null = null;
   introVisible: boolean;
   introStartTime: number;
   introData: IntroData;
@@ -83,13 +94,19 @@ export class GameEngine {
         const trapName = TextResources.get('objects.label.trap', 'Trap') as string;
         this.enemyManager.combatManager.playDeathSequence(trapName);
       },
+      onItemCollected: (itemId, roomIndex) => this.onOnlineItemPicked?.(itemId, roomIndex),
+      onObjectTriggered: (objectId, roomIndex, newState) => this.onOnlineObjectTriggered?.(objectId, roomIndex, newState),
     });
     this.combatStunManager = new CombatStunManager(this.gameState.state);
     this.enemyManager = new EnemyManager(this.gameState as never, this.renderer, this.tileManager, {
       onPlayerDefeated: () => this.handlePlayerDefeat(),
+      onEnemyDefeated: (enemyId: string, enemy: { roomIndex: number }) => {
+        this.onOnlineEnemyDied?.(enemyId, enemy.roomIndex);
+      },
       dialogManager: this.dialogManager,
       combatStunManager: this.combatStunManager,
       playerManager: this.gameState.playerManager,
+      onEnemyStateChanged: () => this.onOnlineStateChanged?.(),
     });
     (this.gameState as unknown as { isInCombat?: () => boolean }).isInCombat =
       () => this.enemyManager.isInCombat();
@@ -101,11 +118,15 @@ export class GameEngine {
       interactionManager: this.interactionManager,
       enemyManager: this.enemyManager,
       combatStunManager: this.combatStunManager,
+      options: {
+        onObjectOpened: (objectId, roomIndex) => this.onOnlineObjectTriggered?.(objectId, roomIndex, true),
+      },
     });
     this.inputManager = new InputManager(this);
     this.backgroundMusicEngine = new BackgroundMusicEngine();
     this.isDestroyed = false;
     this.awaitingRestart = false;
+    this.onlineMode = 'solo';
     this.introVisible = false;
     this.introStartTime = 0;
     this.introData = { title: 'Tiny RPG Studio', author: '' };
@@ -128,10 +149,13 @@ export class GameEngine {
   // Movement and interaction handling
   tryMove(dx: number, dy: number): void {
     this.movementManager.tryMove(dx, dy);
+    this.onOnlineMove?.(dx, dy);
   }
 
   checkInteractions(): void {
     this.interactionManager.handlePlayerInteractions();
+    this.onOnlineInteract?.();
+    this.onOnlineStateChanged?.();
   }
 
   showDialog(text: string, options: Record<string, unknown> = {}): void {
@@ -664,10 +688,106 @@ export class GameEngine {
     return changed;
   }
 
+  setOnlineMode(mode: OnlineMode): void {
+    this.onlineMode = mode;
+  }
+
+  setOnlineActiveRooms(rooms: ReadonlySet<number> | null): void {
+    this.enemyManager.setActiveRooms(rooms);
+  }
+
+  setRemotePlayersForEnemyAI(players: Array<{ id: string; x: number; y: number; roomIndex: number; alive?: boolean }>): void {
+    this.enemyManager.setRemotePlayers(players);
+  }
+
+  processGuestMove(guestX: number, guestY: number, guestRoomIndex: number, dx: number, dy: number): void {
+    this.movementManager.tryPushBoxForGuest(guestX, guestY, guestRoomIndex, dx, dy);
+    this.onOnlineStateChanged?.();
+  }
+
+  processGuestInteract(guestX: number, guestY: number, guestRoomIndex: number): void {
+    // Only process switch toggles on behalf of the Guest.
+    // Items, NPCs, traps, chests and exits must NOT run here — they have
+    // local side-effects (inventory, dialog, room transition) that belong
+    // to the player who actually triggered them, not the Host.
+    const triggered = this.interactionManager.handleSwitchInteractAt(guestX, guestY, guestRoomIndex);
+    if (triggered) {
+      this.renderer.draw();
+      this.onOnlineStateChanged?.();
+    }
+  }
+
+  processGuestAttack(enemyId: string): void {
+    this.processGuestAttackDamage(enemyId, 1);
+  }
+
+  processGuestAttackDamage(enemyId: string, damage = 1): void {
+    const enemies = this.gameState.getEnemies();
+    const enemy = enemies.find((e) => e.id === enemyId);
+    if (!enemy || typeof (enemy as { deathStartTime?: number | null }).deathStartTime === 'number') return;
+    const lives = typeof enemy.lives === 'number' ? enemy.lives : 1;
+    const normalizedDamage = Number.isFinite(damage) ? Math.max(1, Math.floor(damage)) : 1;
+    enemy.lives = Math.max(0, lives - normalizedDamage);
+    if (enemy.lives <= 0) {
+      (enemy as { deathStartTime?: number | null }).deathStartTime = performance.now();
+      // Cancel any pending windup timers targeting this enemy to prevent ghost damage
+      this.enemyManager.cancelWindupTimersForEnemy(enemyId);
+      // Clear the attack telegraph so the indicator doesn't persist
+      this.renderer.attackTelegraph?.deactivateTelegraph(enemyId);
+      this.onOnlineEnemyDied?.(enemyId, enemy.roomIndex);
+      setTimeout(() => {
+        const idx = this.gameState.getEnemies().findIndex((e) => e.id === enemyId);
+        if (idx >= 0) this.gameState.getEnemies().splice(idx, 1);
+      }, 1000);
+    }
+    this.onOnlineStateChanged?.();
+    this.renderer.draw();
+  }
+
+  prepareOnlineGuestAttack(enemyId: string): number | null {
+    const player = this.gameState.getPlayer();
+    if (!player) return null;
+    const now = performance.now();
+    if (now - (player.lastAttackTime ?? 0) < GameConfig.combat.attackCooldown) {
+      return null;
+    }
+    const enemy = this.gameState.getEnemies().find((entry) => entry.id === enemyId);
+    if (!enemy || typeof enemy.deathStartTime === 'number') return null;
+
+    player.lastAttackTime = now;
+    const baseDamage = this.gameState.getPlayerDamage();
+    const backstabDamage = this.isOnlineBackstab(player, enemy) ? 1 : 0;
+    this.gameState.consumeSwordDurability();
+    this.renderer.draw();
+    return baseDamage + backstabDamage;
+  }
+
+  private isOnlineBackstab(player: { x: number; y: number; roomIndex: number }, enemy: { x: number; y: number; roomIndex: number; lastX?: number; lastY?: number }): boolean {
+    if (player.roomIndex !== enemy.roomIndex) return false;
+    const dx = enemy.x - (enemy.lastX ?? enemy.x);
+    const dy = enemy.y - (enemy.lastY ?? enemy.y);
+    if (Math.abs(dx) >= Math.abs(dy) && dx !== 0) {
+      return dx > 0 ? player.x < enemy.x : player.x > enemy.x;
+    }
+    if (dy !== 0) {
+      return dy > 0 ? player.y < enemy.y : player.y > enemy.y;
+    }
+    return false;
+  }
+
+  isGuestMode(): boolean {
+    return this.onlineMode === 'online-guest';
+  }
+
   startEnemyLoop(): void {
     // Do not run the enemy simulation while editing. Halt the timer entirely
     // instead of relying on a per-tick no-op so nothing ticks in the background.
     if (this.isEditorModeActive()) {
+      this.enemyManager.stop();
+      return;
+    }
+    // Guests do not run the enemy simulation — they receive world state from the Host.
+    if (this.isGuestMode()) {
       this.enemyManager.stop();
       return;
     }
@@ -697,6 +817,7 @@ export class GameEngine {
   }
 
   handlePlayerDefeat(): void {
+    this.onOnlinePlayerDefeated?.();
     this.gameState.prepareNecromancerRevive();
     this.enemyManager.stop();
     this.gameState.pauseGame('game-over');
@@ -707,6 +828,9 @@ export class GameEngine {
 
   handleGameCompletion(): void {
     if (this.isGameOver()) return;
+    // Guests don't auto-trigger victory — the Host sends a game-over event.
+    if (this.isGuestMode()) return;
+    this.onOnlineGameCompletion?.();
     soundEngine.play('victory');
     this.enemyManager.stop();
     this.gameState.pauseGame('game-over');

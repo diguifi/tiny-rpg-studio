@@ -292,6 +292,7 @@ class Renderer {
                 this.drawEnemyVisionDebug(ctx);
                 this.entityRenderer.drawEnemies(ctx);
                 this.entityRenderer.drawPlayer(ctx);
+                this.entityRenderer.drawRemotePlayers(ctx);
                 // Draw the sword swing on top of the player while attacking
                 this.swordSwing.draw(ctx);
                 // Draw enemy life markers AFTER player to ensure they're always visible on top

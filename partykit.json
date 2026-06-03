@@ -1,0 +1,5 @@
+{
+  "name": "tiny-rpg-online",
+  "main": "partykit/src/party.ts",
+  "compatibilityDate": "2024-01-01"
+}

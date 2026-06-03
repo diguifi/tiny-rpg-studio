@@ -1,4 +1,4 @@
-import type { GameDefinition, RoomDefinition, VariableDefinition, CustomSpriteEntry, SkillCustomizationMap } from '../../../types/gameState';
+import type { GameDefinition, RoomDefinition, VariableDefinition, CustomSpriteEntry, SkillCustomizationMap, OnlineConfig } from '../../../types/gameState';
 import type { StateWorldManager } from './StateWorldManager';
 import type { StateObjectManager, ObjectEntry } from './StateObjectManager';
 import type { StateVariableManager } from './StateVariableManager';
@@ -39,6 +39,7 @@ type ImportData = {
     customSprites?: unknown[];
     skillOrder?: string[];
     skillCustomizations?: SkillCustomizationMap;
+    online?: OnlineConfig;
 };
 
 class StateDataManager {
@@ -99,6 +100,9 @@ class StateDataManager {
                 : {}),
             ...(this.game.skillCustomizations
                 ? { skillCustomizations: this.game.skillCustomizations }
+                : {}),
+            ...(this.game.online?.enabled
+                ? { online: this.game.online }
                 : {}),
         };
     }
@@ -165,6 +169,18 @@ class StateDataManager {
         }
 
         this.game.skillCustomizations = SkillDefinitions.sanitizeCustomizationMap(data.skillCustomizations);
+
+        if (data.online?.enabled === true) {
+            const spawnPoints = Array.isArray(data.online.spawnPoints)
+                ? data.online.spawnPoints.filter(
+                    (p) => p && typeof p.role === 'string' && typeof p.roomIndex === 'number' &&
+                           typeof p.x === 'number' && typeof p.y === 'number'
+                  )
+                : [];
+            this.game.online = { enabled: true, spawnPoints };
+        } else {
+            this.game.online = undefined;
+        }
 
         const start = {
             x: this.worldManager.clampCoordinate(data.start?.x ?? 1),

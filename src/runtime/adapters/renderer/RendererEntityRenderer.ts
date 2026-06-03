@@ -2,6 +2,7 @@ import { EnemyDefinitions } from '../../domain/definitions/EnemyDefinitions';
 import { ITEM_TYPES } from '../../domain/constants/itemTypes';
 import { GameConfig } from '../../../config/GameConfig';
 import { bitmapFont } from './BitmapFont';
+import { FONT_SIZE } from '../../../config/FontConfig';
 import { drawUnreadNpcDialogMarker, shouldDrawUnreadNpcDialogMarker } from './RendererNpcDialogMarker';
 
 type FlashState = {
@@ -30,6 +31,13 @@ class RendererEntityRenderer {
     attackTelegraph?: { applyWindupOffset: (enemyId: string, x: number, y: number) => { x: number; y: number } };
     private flashStates: Map<string, FlashState>;
     private flyingLifeSquares: FlyingLifeSquare[];
+    private remotePlayers: Array<{ id: string; name: string; roomIndex: number; x: number; y: number; alive: boolean; playerIndex: number; facing?: string }> = [];
+    private localPlayerName: string = '';
+    private localPlayerIndex: number = 0;
+
+    // Tint colors per player index (index 0 = Host/P1, index 1 = Guest/P2, etc.)
+    private static readonly PLAYER_TINTS = ['#00e756', '#29adff', '#ff77a8', '#ffa300'];
+    private static readonly PLAYER_TINT_ALPHA = 0.30;
 
     constructor(
         gameState: GameStateApi,
@@ -220,11 +228,14 @@ class RendererEntityRenderer {
             if (enemy.roomIndex !== player.roomIndex) return;
             const baseSprite = this.spriteFactory.getEnemySprite(enemy.type);
             if (!baseSprite) return;
-            const sprite = this.adjustSpriteHorizontally(enemy.x, enemy.lastX ?? enemy.x, baseSprite);
+            // Use interpolated visual position on Guest; fall back to logic position
+            const visX = (enemy as { _vx?: number })._vx ?? enemy.x;
+            const visY = (enemy as { _vy?: number })._vy ?? enemy.y;
+            const sprite = this.adjustSpriteHorizontally(visX, enemy.lastX ?? enemy.x, baseSprite);
 
             // Apply wind-up animation offset (enemy pulls back before attacking)
-            let px = enemy.x * tileSize;
-            let py = enemy.y * tileSize;
+            let px = visX * tileSize;
+            let py = visY * tileSize;
             const enemyId = enemy.id || `${enemy.type}-${enemy.x}-${enemy.y}`;
 
             if (this.attackTelegraph) {
@@ -322,13 +333,25 @@ class RendererEntityRenderer {
         const step = tileSize / 8;
         const px = player.x * tileSize;
         const py = player.y * tileSize;
-        let sprite = this.spriteFactory.getPlayerSprite();
+        let sprite = this.getOnlinePlayerSprite(this.localPlayerIndex);
         if (!sprite) return;
         sprite = this.adjustSpriteHorizontally(player.x, player.lastX ?? player.x, sprite);
         const fadeStealth = this.shouldFadePlayerForStealth();
         if (fadeStealth) ctx.save();
         if (fadeStealth) ctx.globalAlpha = 0.45;
         this.canvasHelper.drawSprite(ctx, sprite, px, py, step);
+
+        // In online mode, apply player-index tint over the sprite
+        if (this.localPlayerName) {
+            const tint = RendererEntityRenderer.PLAYER_TINTS[this.localPlayerIndex] ?? RendererEntityRenderer.PLAYER_TINTS[0];
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-atop';
+            ctx.globalAlpha = RendererEntityRenderer.PLAYER_TINT_ALPHA;
+            ctx.fillStyle = tint;
+            ctx.fillRect(px, py, tileSize, tileSize);
+            ctx.restore();
+        }
+
         if (fadeStealth) ctx.restore();
 
         // Apply hit flash effect
@@ -337,7 +360,80 @@ class RendererEntityRenderer {
             this.applyFlashOverlay(ctx, flashColor, px, py, tileSize);
         }
 
-        // Player lives are shown in HUD - no need for squares above head
+        // Draw name label in online mode
+        if (this.localPlayerName) {
+            this.drawPlayerNameLabel(ctx, px, py, tileSize, this.localPlayerName, this.localPlayerIndex, true);
+        }
+    }
+
+    setLocalOnlinePlayer(name: string, playerIndex: number): void {
+        this.localPlayerName = name;
+        this.localPlayerIndex = playerIndex;
+    }
+
+    setRemotePlayers(players: Array<{ id: string; name: string; roomIndex: number; x: number; y: number; alive: boolean; playerIndex: number; facing?: string }>): void {
+        this.remotePlayers = players;
+    }
+
+    private drawPlayerNameLabel(ctx: CanvasRenderingContext2D, px: number, py: number, tileSize: number, name: string, playerIndex: number, isSelf: boolean): void {
+        if (!name) return;
+        const tint = RendererEntityRenderer.PLAYER_TINTS[playerIndex] ?? RendererEntityRenderer.PLAYER_TINTS[0];
+        const label = isSelf ? `${name} <` : name;
+        const charSize = FONT_SIZE;
+        const labelW = bitmapFont.measureText(label, charSize);
+        const nameX = Math.round(px + tileSize / 2 - labelW / 2);
+        // Draw one pixel above the sprite
+        const nameY = py - charSize - 1;
+
+        ctx.save();
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        // Shadow pass: draw in black offset by 1px in each direction
+        const offsets = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        for (const [ox, oy] of offsets) {
+            bitmapFont.drawText(ctx, label, nameX + ox, nameY + oy, charSize, '#000000');
+        }
+        // Color pass
+        bitmapFont.drawText(ctx, label, nameX, nameY, charSize, tint);
+        ctx.restore();
+    }
+
+    drawRemotePlayers(ctx: CanvasRenderingContext2D): void {
+        if (this.remotePlayers.length === 0) return;
+        const localPlayer = this.gameState.getPlayer();
+        const tileSize = this.canvasHelper.getTilePixelSize();
+        const step = tileSize / 8;
+
+        for (const remote of this.remotePlayers) {
+            if (remote.roomIndex !== localPlayer.roomIndex) continue;
+            if (!remote.alive) continue;
+
+            let sprite = this.getOnlinePlayerSprite(remote.playerIndex);
+            if (!sprite) continue;
+
+            // Apply facing direction (left = flip horizontally)
+            if (remote.facing === 'left') {
+                sprite = this.adjustSpriteHorizontally(0, 1, sprite);
+            } else if (remote.facing === 'right') {
+                sprite = this.adjustSpriteHorizontally(1, 0, sprite);
+            }
+
+            const px = remote.x * tileSize;
+            const py = remote.y * tileSize;
+            const tint = RendererEntityRenderer.PLAYER_TINTS[remote.playerIndex] ?? RendererEntityRenderer.PLAYER_TINTS[1];
+
+            // Draw sprite
+            this.canvasHelper.drawSprite(ctx, sprite, px, py, step);
+            // Apply player-index tint
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-atop';
+            ctx.globalAlpha = RendererEntityRenderer.PLAYER_TINT_ALPHA;
+            ctx.fillStyle = tint;
+            ctx.fillRect(px, py, tileSize, tileSize);
+            ctx.restore();
+
+            this.drawPlayerNameLabel(ctx, px, py, tileSize, remote.name, remote.playerIndex, false);
+        }
     }
 
     drawTileIconOnPlayer(ctx: CanvasRenderingContext2D, tileId: string) {
@@ -359,6 +455,14 @@ class RendererEntityRenderer {
             return this.spriteFactory.turnSpriteHorizontally(sprite);
         }
         return sprite;
+    }
+
+    private getOnlinePlayerSprite(playerIndex: number): Sprite | null {
+        if (playerIndex === 1) {
+            const npcSprite = this.spriteFactory.getNpcSprites()['villager-woman'];
+            if (npcSprite) return npcSprite;
+        }
+        return this.spriteFactory.getPlayerSprite();
     }
 
     getFloatingOffset(x: number, y: number, tileSize: number) {

@@ -302,6 +302,7 @@
                                         <button class="project-tab-button active" type="button" role="tab" aria-selected="true" data-project-tab-button="development" data-text-key="project.group.development">Desenvolvimento</button>
                                         <button class="project-tab-button" type="button" role="tab" aria-selected="false" data-project-tab-button="testing" data-text-key="project.group.testing">Testes</button>
                                         <button class="project-tab-button" type="button" role="tab" aria-selected="false" data-project-tab-button="appearance" data-text-key="project.group.appearance">Aparência</button>
+                                        <button class="project-tab-button" type="button" role="tab" aria-selected="false" data-project-tab-button="online" data-text-key="project.group.online">Online</button>
                                         <button class="project-tab-button" type="button" role="tab" aria-selected="false" data-project-tab-button="info" data-text-key="project.group.info">Informações</button>
                                         <button class="project-tab-button" type="button" role="tab" aria-selected="false" data-project-tab-button="audio">Audio</button>
                                         <button class="project-tab-button" type="button" role="tab" aria-selected="false" data-project-tab-button="export" data-text-key="project.group.export">Exportação</button>
@@ -392,6 +393,33 @@
                                             <input type="checkbox" id="project-show-variable-links" checked>
                                             <span data-text-key="project.showVariableLinks"></span>
                                         </label>
+                                    </div>
+                                    </div>
+
+                                    <div class="project-tab-panel" role="tabpanel" data-project-tab-panel="online" hidden>
+                                    <div class="project-group project-group--online">
+                                        <h2 class="project-group__title" data-text-key="project.group.online">Online</h2>
+                                        <div class="project-online-warning" role="alert" data-text-key="project.online.warning">
+                                            O modo online ainda está em desenvolvimento. Ele não está completo e pode conter bugs.
+                                        </div>
+                                        <div class="project-online-section">
+                                            <label class="project-test__field project-test__checkbox">
+                                                <input type="checkbox" id="project-online-enabled">
+                                                <span data-text-key="project.online.enabled">Modo Online</span>
+                                            </label>
+                                            <div id="project-online-controls" class="project-online-controls">
+                                                <div class="project-online-spawn">
+                                                    <span data-text-key="project.online.p2Spawn">P2 inicia em:</span>
+                                                    <span id="online-p2-spawn-label" class="project-online-spawn__value" data-text-key="project.online.spawnUnset">não definido</span>
+                                                </div>
+                                                <div class="project-online-actions">
+                                                    <button id="btn-start-online-server" class="btn btn--small" type="button" data-text-key="project.online.generateLink">Gerar Link Online</button>
+                                                </div>
+                                                <div id="online-server-url-row" class="project-online-url-row">
+                                                    <input id="online-server-url" class="project-online-url-input" type="text" readonly spellcheck="false">
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     </div>
 

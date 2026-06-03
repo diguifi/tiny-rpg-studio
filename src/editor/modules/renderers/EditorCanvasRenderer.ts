@@ -112,6 +112,17 @@ class EditorCanvasRenderer extends EditorRendererBase {
             }
         }
 
+        const game = (this.gameEngine as unknown as { getGame?: () => { online?: { enabled?: boolean; spawnPoints?: Array<{ role: string; roomIndex: number; x: number; y: number }> } } }).getGame?.();
+        const p2Spawn = game?.online?.enabled
+            ? game.online.spawnPoints?.find((spawn) => spawn.role === 'p2' && spawn.roomIndex === roomIndex)
+            : null;
+        if (p2Spawn) {
+            const sprite = this.gameEngine.renderer.spriteFactory.getNpcSprites()['villager-woman'];
+            if (sprite) {
+                this.gameEngine.renderer.canvasHelper.drawSprite(ctx, sprite, p2Spawn.x * tileSize, p2Spawn.y * tileSize, step);
+            }
+        }
+
         const npcs = (this.gameEngine.getSprites() as CanvasNpc[]).filter(
             (npc: CanvasNpc) => npc.roomIndex === roomIndex && npc.placed,
         );

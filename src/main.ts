@@ -3,6 +3,7 @@ import { applyFontConfig } from './config/FontConfig';
 import { EditorManager } from './editor/EditorManager';
 import { EditorExportService } from './editor/modules/EditorExportService';
 import { ExploreModal } from './editor/modules/ExploreModal';
+import { OnlineModeApplication } from './online/OnlineModeApplication';
 import { GameEngine } from './runtime/services/GameEngine';
 import { ShareUtils } from './runtime/infra/share/ShareUtils';
 import { getTinyRpgApi, setTinyRpgApi, type TinyRpgApi } from './runtime/infra/TinyRpgApi';
@@ -25,6 +26,13 @@ class TinyRPGApplication {
 
   static initializeApplication(): void {
     applyFontConfig();
+
+    const onlineGuid = this.detectOnlineMode();
+    if (onlineGuid) {
+      this.bootOnlineMode(onlineGuid);
+      return;
+    }
+
     this.setupTabs();
 
     const gameCanvas = document.getElementById('game-canvas');
@@ -412,6 +420,16 @@ class TinyRPGApplication {
         );
       }
     }
+  }
+
+  static detectOnlineMode(): string | null {
+    if (typeof globalThis.location === 'undefined') return null;
+    const params = new URLSearchParams(globalThis.location.search);
+    return params.get('online-mode') ?? params.get('modo-online');
+  }
+
+  static bootOnlineMode(guid: string): void {
+    OnlineModeApplication.boot(guid, (gameEngine) => this.loadSharedGameIfAvailable(gameEngine));
   }
 
   static loadSharedGameIfAvailable(gameEngine: GameEngine): void {

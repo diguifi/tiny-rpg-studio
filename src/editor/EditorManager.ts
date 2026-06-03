@@ -370,6 +370,18 @@ class EditorManager {
         this.uiController.setDisablePixelFont(active);
     }
 
+    setOnlineEnabled(enabled: boolean) {
+        this.uiController.setOnlineEnabled(enabled);
+    }
+
+    startOnlineServer() {
+        this.uiController.startOnlineServer();
+    }
+
+    setP2Spawn() {
+        this.uiController.setP2Spawn();
+    }
+
     setActiveMobilePanel(panel: string) {
         this.uiController.setActiveMobilePanel(panel);
     }

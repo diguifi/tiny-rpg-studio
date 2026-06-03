@@ -64,6 +64,25 @@ describe('ShareEncoder', () => {
     expect(decoded?.disableSkills).toBe(true);
   });
 
+  it('preserves online config through an encode/decode round trip', () => {
+    const online = {
+      enabled: true,
+      spawnPoints: [{ role: 'p2', roomIndex: 2, x: 3, y: 4 }]
+    };
+    const code = ShareEncoder.buildShareCode({ online });
+    const decoded = ShareDecoder.decodeShareCode(code) as ({ online?: typeof online } | null);
+
+    expect(code.split('.').some((segment) => segment.startsWith('8'))).toBe(true);
+    expect(decoded?.online?.enabled).toBe(true);
+    expect(decoded?.online?.spawnPoints).toHaveLength(1);
+    expect(decoded?.online?.spawnPoints?.[0]).toMatchObject({ role: 'p2', roomIndex: 2, x: 3, y: 4 });
+  });
+
+  it('omits online segment when online is disabled or absent', () => {
+    expect(ShareEncoder.buildShareCode({}).split('.').some((s) => s.startsWith('8'))).toBe(false);
+    expect(ShareEncoder.buildShareCode({ online: { enabled: false } }).split('.').some((s) => s.startsWith('8'))).toBe(false);
+  });
+
   it('preserves skill customizations through an encode/decode round trip', () => {
     const code = ShareEncoder.buildShareCode({
       skillCustomizations: {

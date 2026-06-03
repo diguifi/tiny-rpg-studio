@@ -63,6 +63,9 @@ export type EnemyDefinition = {
     moveDirectionY?: number;
     moveDirectionSteps?: number;
     deathStartTime?: number | null;
+    /** Visual position for smooth interpolation on Guest (tile-space, fractional). */
+    _vx?: number;
+    _vy?: number;
 };
 
 export type VariableDefinition = {
@@ -171,6 +174,18 @@ export type SkillCustomizationMap = Record<string, {
     icon?: string;
 }>;
 
+export type OnlineSpawnPoint = {
+    role: string;
+    roomIndex: number;
+    x: number;
+    y: number;
+};
+
+export type OnlineConfig = {
+    enabled: boolean;
+    spawnPoints?: OnlineSpawnPoint[];
+};
+
 export type GameDefinition = {
     title: string;
     author: string;
@@ -194,6 +209,7 @@ export type GameDefinition = {
     customSprites?: CustomSpriteEntry[];
     skillOrder?: string[];
     skillCustomizations?: SkillCustomizationMap;
+    online?: OnlineConfig;
 };
 
 export type NpcDialogReadState = Partial<Record<string, Partial<Record<string, true>>>>;

@@ -8,6 +8,7 @@ import { EditorRendererBase } from './EditorRendererBase';
 import { RendererConstants } from '../../../runtime/adapters/renderer/RendererConstants';
 import { CustomSpriteLookup } from '../../../runtime/domain/sprites/CustomSpriteLookup';
 import type { CustomSpriteEntry } from '../../../types/gameState';
+import { ONLINE_PLAYER_START_2_TYPE } from '../EditorObjectService';
 
 const EditorObjectTypes = ITEM_TYPES;
 const PLAYER_END_TYPE = EditorObjectTypes.PLAYER_END;
@@ -49,9 +50,25 @@ class EditorObjectRenderer extends EditorRendererBase {
 
         const definitions = EditorConstants.OBJECT_DEFINITIONS as ObjectDefinitionView[];
         if (!Array.isArray(definitions) || !definitions.length) return;
+        const game = (this.gameEngine as unknown as { getGame?(): { customSprites?: CustomSpriteEntry[]; online?: { enabled?: boolean; spawnPoints?: Array<{ role: string; roomIndex: number; x: number; y: number }> } } }).getGame?.();
+        const onlineEnabled = Boolean(game?.online?.enabled);
+        const catalogDefinitions = onlineEnabled
+            ? (() => {
+                const playerStart = definitions.find((def) => def.type === EditorObjectTypes.PLAYER_START);
+                const remaining = definitions.filter((def) => def.type !== EditorObjectTypes.PLAYER_START);
+                return [
+                    ...(playerStart ? [{ ...playerStart, nameKey: 'objects.label.playerStart1' }] : []),
+                    { type: ONLINE_PLAYER_START_2_TYPE, nameKey: 'objects.label.playerStart2' },
+                    ...remaining,
+                ];
+            })()
+            : definitions;
 
         const categoryFilter = this.state.objectCategoryFilter || 'all';
-        const filteredDefinitions = definitions.filter((def) => {
+        const filteredDefinitions = catalogDefinitions.filter((def) => {
+            if (def.type === ONLINE_PLAYER_START_2_TYPE) {
+                return categoryFilter === 'all' || categoryFilter === 'markers';
+            }
             if (categoryFilter === 'all') return true;
             const itemDef = ItemDefinitions.getItemDefinition(def.type as ItemType);
             return Boolean(itemDef && itemDef.hasTag(categoryFilter));
@@ -63,7 +80,6 @@ class EditorObjectRenderer extends EditorRendererBase {
         const allObjects = ((this.gameEngine as unknown as { getObjects?(): EditorObject[] }).getObjects?.() || []) as EditorObject[];
         const allPlacedTypes = new Set(allObjects.map((o) => o.type));
         const placedTypes = new Set(placedObjects.map((object) => object.type));
-        const game = (this.gameEngine as unknown as { getGame?(): { customSprites?: CustomSpriteEntry[] } }).getGame?.();
         const customSprites = game?.customSprites;
         const rendererDefs = (RendererConstants.OBJECT_DEFINITIONS as Array<{ type: string; spriteOn?: unknown }> | undefined) ?? [];
 
@@ -76,12 +92,14 @@ class EditorObjectRenderer extends EditorRendererBase {
             }
             // Use allPlacedTypes for global-unique objects so they appear as placed
             // even when the current room is different from the room they're in.
-            const isGlobalUnique = definition.type === EditorObjectTypes.PLAYER_START;
-            const isMulti = itemCatalog.allowsMultiplePerRoom(definition.type as ItemType);
-            const instanceCount = placedObjects.filter((o) => o.type === definition.type).length;
+            const isPlayerStart2 = definition.type === ONLINE_PLAYER_START_2_TYPE;
+            const isGlobalUnique = definition.type === EditorObjectTypes.PLAYER_START || isPlayerStart2;
+            const isMulti = isPlayerStart2 ? false : itemCatalog.allowsMultiplePerRoom(definition.type as ItemType);
+            const instanceCount = isPlayerStart2 ? 0 : placedObjects.filter((o) => o.type === definition.type).length;
+            const hasPlayerStart2 = Boolean(game?.online?.spawnPoints?.some((spawn) => spawn.role === 'p2'));
             const isPlaced = isMulti
                 ? instanceCount >= StateObjectManager.MULTI_INSTANCE_LIMIT
-                : (isGlobalUnique ? allPlacedTypes.has(definition.type) : placedTypes.has(definition.type));
+                : (isPlayerStart2 ? hasPlayerStart2 : (isGlobalUnique ? allPlacedTypes.has(definition.type) : placedTypes.has(definition.type)));
             if (isPlaced) {
                 card.classList.add('placed');
             }
@@ -97,7 +115,7 @@ class EditorObjectRenderer extends EditorRendererBase {
 
             const name = document.createElement('div');
             name.className = 'object-type-name';
-            name.textContent = this.getObjectLabel(definition.type, definitions);
+            name.textContent = this.getObjectLabel(definition.type, catalogDefinitions);
 
             const info = document.createElement('div');
             info.className = 'object-type-info';
@@ -150,26 +168,28 @@ class EditorObjectRenderer extends EditorRendererBase {
                 }
             }
 
-            const isPlayerStart = definition.type === EditorObjectTypes.PLAYER_START;
+            const isPlayerStart = definition.type === EditorObjectTypes.PLAYER_START || isPlayerStart2;
             const rendererDef = isPlayerStart
                 ? undefined
                 : rendererDefs.find((d) => d.type === definition.type);
             const hasSpriteOn = Boolean(rendererDef?.spriteOn);
 
-            const editBtn = document.createElement('button');
-            editBtn.type = 'button';
-            editBtn.className = 'sprite-edit-btn';
-            editBtn.dataset.editGroup = isPlayerStart ? 'player' : 'object';
-            editBtn.dataset.editKey = isPlayerStart ? 'default' : definition.type;
-            editBtn.dataset.editVariant = 'base';
-            editBtn.textContent = '✎';
+            card.append(preview, meta);
+            if (!isPlayerStart2) {
+                const editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.className = 'sprite-edit-btn';
+                editBtn.dataset.editGroup = isPlayerStart ? 'player' : 'object';
+                editBtn.dataset.editKey = isPlayerStart ? 'default' : definition.type;
+                editBtn.dataset.editVariant = 'base';
+                editBtn.textContent = '✎';
 
-            const isCustom = isPlayerStart
-                ? CustomSpriteLookup.find(customSprites, 'player', 'default', 'base') !== null
-                : this.hasCustomSprite(customSprites, definition.type, hasSpriteOn);
-            if (isCustom) editBtn.classList.add('is-custom');
-
-            card.append(preview, meta, editBtn);
+                const isCustom = isPlayerStart
+                    ? CustomSpriteLookup.find(customSprites, 'player', 'default', 'base') !== null
+                    : this.hasCustomSprite(customSprites, definition.type, hasSpriteOn);
+                if (isCustom) editBtn.classList.add('is-custom');
+                card.appendChild(editBtn);
+            }
 
             container.appendChild(card);
         });
@@ -603,6 +623,12 @@ class EditorObjectRenderer extends EditorRendererBase {
         const renderer = this.gameEngine.renderer;
         const step = canvas.width / 8;
 
+        if (type === ONLINE_PLAYER_START_2_TYPE) {
+            const sprite = renderer.spriteFactory.getNpcSprites()['villager-woman'];
+            if (sprite) renderer.canvasHelper.drawSprite(ctx, sprite, 0, 0, step);
+            return;
+        }
+
         if (type === EditorObjectTypes.PLAYER_START) {
             const sprite = renderer.spriteFactory.getPlayerSprite();
             if (sprite) renderer.canvasHelper.drawSprite(ctx, sprite, 0, 0, step);
@@ -625,6 +651,8 @@ class EditorObjectRenderer extends EditorRendererBase {
                 return this.t('objects.label.doorVariable');
             case EditorObjectTypes.PLAYER_START:
                 return this.t('objects.label.playerStart');
+            case ONLINE_PLAYER_START_2_TYPE:
+                return this.t('objects.label.playerStart2');
             case EditorObjectTypes.PLAYER_END:
                 return this.t('objects.label.playerEnd');
             case EditorObjectTypes.SWITCH:

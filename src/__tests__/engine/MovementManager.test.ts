@@ -198,4 +198,31 @@ describe('MovementManager', () => {
 
     expect(dialogManager.showDialog).toHaveBeenCalledWith('Hello!', undefined);
   });
+
+  it('notifies when a locked door is opened by movement', () => {
+    const door = { id: 'door-1', type: 'door', roomIndex: 0, x: 1, y: 0, isLockedDoor: true, opened: false };
+    const onObjectOpened = vi.fn();
+    const gameState = {
+      ...createGameState(false),
+      getGame: () => ({ sprites: [], rooms: [{}] }),
+      getObjectAt: (_room: number, x: number, y: number) => (x === 1 && y === 0 ? door : null),
+      consumeKey: vi.fn(() => true),
+      getKeys: () => 0,
+    };
+
+    const manager = new MovementManager({
+      gameState,
+      tileManager,
+      renderer,
+      dialogManager,
+      interactionManager,
+      enemyManager,
+      options: { onObjectOpened },
+    });
+
+    manager.tryMove(1, 0);
+
+    expect(door.opened).toBe(true);
+    expect(onObjectOpened).toHaveBeenCalledWith('door-1', 0);
+  });
 });

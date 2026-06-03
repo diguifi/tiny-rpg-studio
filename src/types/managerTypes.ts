@@ -120,12 +120,14 @@ export type CombatManagerOptions = {
 
 export type EnemyManagerOptions = {
   onPlayerDefeated?: () => void;
+  onEnemyDefeated?: (enemyId: string, enemy: { roomIndex: number }) => void;
   interval?: number;
   directions?: number[][];
   dialogManager?: { showDialog?: (text: string) => void } | null;
   missChance?: number;
   combatStunManager?: CombatStunManagerApi | null;
   playerManager?: StatePlayerManagerApi | null;
+  onEnemyStateChanged?: () => void;
 };
 
 // ========== Tile & World APIs ==========

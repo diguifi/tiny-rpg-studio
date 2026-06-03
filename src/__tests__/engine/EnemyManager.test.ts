@@ -548,6 +548,23 @@ describe('EnemyManager', () => {
     expect(enemy.x).toBe(3);
   });
 
+  it('notifies online state changes when a chasing enemy moves during player movement', () => {
+    const player = { roomIndex: 0, x: 5, y: 5 };
+    const enemy: MockEnemyData = { id: 'chaser', type: 'rat', roomIndex: 0, x: 2, y: 2, lastX: 2, playerInVision: true };
+    const onEnemyStateChanged = vi.fn();
+    const gameState = createEnemyGameState({
+      getEnemies: vi.fn(() => [enemy]),
+      getPlayer: vi.fn(() => player),
+      getGame: vi.fn(() => ({ rooms: [{}] })),
+    });
+
+    const manager = new EnemyManager(gameState, renderer, tileManager, { onEnemyStateChanged });
+
+    manager.moveChasingEnemies(player);
+
+    expect(onEnemyStateChanged).toHaveBeenCalledTimes(1);
+  });
+
   it('does not move non-chasing enemies during player movement', () => {
     const player = { roomIndex: 0, x: 3, y: 0 };
     const enemy: MockEnemyData = { id: 'idle', type: 'rat', roomIndex: 0, x: 0, y: 0, lastX: 0 };
@@ -585,6 +602,24 @@ describe('EnemyManager', () => {
 
     // Enemy stops adjacent (doesn't enter player's tile in new collision system)
     expect(enemy.x).toBe(2);
+  });
+
+  it('notifies online state changes when an enemy moves during the host tick', () => {
+    const player = { roomIndex: 0, x: 4, y: 2 };
+    const enemy: MockEnemyData = { id: 'chaser', type: 'rat', roomIndex: 0, x: 2, y: 2, lastX: 2, playerInVision: true, lives: 1 };
+    const onEnemyStateChanged = vi.fn();
+    const gameState = createEnemyGameState({
+      getEnemies: vi.fn(() => [enemy]),
+      getPlayer: vi.fn(() => player),
+      getGame: vi.fn(() => ({ rooms: [{ walls: [] }] })),
+    });
+
+    const manager = new EnemyManager(gameState, renderer, tileManager, { onEnemyStateChanged });
+
+    manager.tick();
+
+    expect(enemy.x).toBe(3);
+    expect(onEnemyStateChanged).toHaveBeenCalledTimes(1);
   });
 
   it('shows a cooldown message when damage is blocked by room change safety', () => {

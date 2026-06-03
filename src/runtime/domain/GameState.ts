@@ -59,6 +59,7 @@ class GameState {
     lifecycle: GameStateLifecycle;
     reviveSnapshot: ReviveSnapshot | null;
     lastKillerEnemyId: string | null;
+    onVariableChanged: ((variableId: string, value: unknown) => void) | null = null;
     editorMode: boolean;
     levelUpOverlayPresentationSync: (() => void) | null;
 
@@ -694,6 +695,7 @@ class GameState {
             if (this.evaluateLogicGatesAndSyncSideEffects()) {
                 openedMagicDoor = true;
             }
+            this.onVariableChanged?.(normalizedId, value);
         }
         return [success, openedMagicDoor];
     }

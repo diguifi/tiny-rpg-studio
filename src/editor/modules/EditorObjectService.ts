@@ -3,6 +3,8 @@ import { itemCatalog } from '../../runtime/domain/services/ItemCatalog';
 import { EditorConstants } from './EditorConstants';
 import type { EditorManager } from '../EditorManager';
 
+const ONLINE_PLAYER_START_2_TYPE = 'player-start-2';
+
 type ObjectDefinition = {
     type: string;
 };
@@ -80,6 +82,21 @@ class EditorObjectService {
     }
 
     placeObjectAt(type: string, coord: { x: number; y: number }, roomIndex: number) {
+        if (type === ONLINE_PLAYER_START_2_TYPE) {
+            const game = this.gameEngine.getGame() as { online?: { enabled?: boolean; spawnPoints?: Array<{ role: string; roomIndex: number; x: number; y: number }> } };
+            if (!game.online?.enabled) return;
+            game.online.spawnPoints = [{ role: 'p2', roomIndex, x: coord.x, y: coord.y }];
+            this.togglePlacement(type, true);
+            this.manager.uiController.syncUI();
+            this.manager.renderService.renderObjects();
+            this.manager.renderObjectCatalog();
+            this.manager.renderService.renderWorldGrid();
+            this.manager.renderService.renderEditor();
+            this.manager.gameEngine.draw();
+            this.manager.updateJSON();
+            this.manager.history.pushCurrentState();
+            return;
+        }
         const object = this.gameEngine.setObjectPosition(type, roomIndex, coord.x, coord.y);
         if (!object) return;
         this.togglePlacement(type, true);
@@ -173,6 +190,10 @@ class EditorObjectService {
 
     normalizeType(type: string | null | undefined): string | null {
         if (typeof type !== 'string' || !type.length) return null;
+        if (type === ONLINE_PLAYER_START_2_TYPE) {
+            const game = this.gameEngine.getGame() as { online?: { enabled?: boolean } };
+            return game.online?.enabled ? ONLINE_PLAYER_START_2_TYPE : null;
+        }
         const definitions = EditorConstants.OBJECT_DEFINITIONS;
         if (Array.isArray(definitions) && definitions.length) {
             const normalized = definitions.find((entry: ObjectDefinition) => entry.type === type)?.type || null;
@@ -201,4 +222,4 @@ class EditorObjectService {
     }
 }
 
-export { EditorObjectService };
+export { EditorObjectService, ONLINE_PLAYER_START_2_TYPE };

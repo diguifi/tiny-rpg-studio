@@ -591,6 +591,18 @@ class ShareDecoder {
             result.skillCustomizations = skillCustomizations;
         }
 
+        const onlineEncoded = payload['8'];
+        if (version >= ShareConstants.ONLINE_VERSION && typeof onlineEncoded === 'string' && onlineEncoded) {
+            try {
+                const parsed = JSON.parse(ShareTextCodec.decodeText(onlineEncoded, '')) as unknown;
+                if (parsed && typeof parsed === 'object' && (parsed as Record<string, unknown>).enabled === true) {
+                    result.online = parsed as { enabled: boolean; spawnPoints?: unknown[] };
+                }
+            } catch {
+                // malformed online config — ignore silently
+            }
+        }
+
         return result;
     }
 

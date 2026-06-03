@@ -69,6 +69,10 @@ type CombatStunManagerApi = {
   isStunned: () => boolean;
 };
 
+type MovementManagerOptions = {
+  onObjectOpened?: (objectId: string, roomIndex: number) => void;
+};
+
 type NpcState = {
   placed?: boolean;
   roomIndex: number;
@@ -125,6 +129,7 @@ class MovementManager {
   interactionManager: InteractionManagerApi;
   enemyManager: EnemyManagerApi;
   combatStunManager: CombatStunManagerApi | null;
+  options: MovementManagerOptions;
   transitioning: boolean;
 
   constructor({
@@ -135,6 +140,7 @@ class MovementManager {
     interactionManager,
     enemyManager,
     combatStunManager,
+    options,
   }: {
     gameState: GameStateApi;
     tileManager: TileManagerApi;
@@ -143,6 +149,7 @@ class MovementManager {
     interactionManager: InteractionManagerApi;
     enemyManager: EnemyManagerApi;
     combatStunManager?: CombatStunManagerApi | null;
+    options?: MovementManagerOptions;
   }) {
     this.gameState = gameState;
     this.tileManager = tileManager;
@@ -151,6 +158,7 @@ class MovementManager {
     this.interactionManager = interactionManager;
     this.enemyManager = enemyManager;
     this.combatStunManager = combatStunManager ?? null;
+    this.options = options ?? {};
     this.transitioning = false;
   }
 
@@ -297,6 +305,8 @@ class MovementManager {
       if (openedWithSkill || consumeKey) {
         if (objectAtTarget) {
           objectAtTarget.opened = true;
+          const objectId = (objectAtTarget as { id?: string }).id ?? `obj-${targetRoomIndex}-${targetX}-${targetY}`;
+          this.options.onObjectOpened?.(objectId, targetRoomIndex);
         }
         soundEngine.play('doorUnlock');
         const remainingKeys = Number(this.gameState.getKeys());
@@ -459,6 +469,19 @@ class MovementManager {
       tileY: coords?.y,
     });
     this.renderer.draw();
+  }
+
+  tryPushBoxForGuest(guestX: number, guestY: number, roomIndex: number, dx: number, dy: number): void {
+    const targetX = guestX + dx;
+    const targetY = guestY + dy;
+    const obj = this.gameState.getObjectAt(roomIndex, targetX, targetY) as { type?: string; x?: number; y?: number } | null;
+    if (obj?.type !== 'push-box') return;
+    const boxNewX = targetX + dx;
+    const boxNewY = targetY + dy;
+    const room = ((this.gameState.getGame() as { rooms?: RoomState[] }).rooms ?? [])[roomIndex];
+    if (!this.canPushBoxTo(roomIndex, boxNewX, boxNewY, room)) return;
+    obj.x = boxNewX;
+    obj.y = boxNewY;
   }
 
   canPushBoxTo(roomIndex: number, x: number, y: number, room: RoomState | undefined): boolean {
