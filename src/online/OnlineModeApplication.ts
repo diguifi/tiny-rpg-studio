@@ -3,6 +3,7 @@ import { TextResources } from '../runtime/adapters/TextResources';
 import { ShareConstants } from '../runtime/infra/share/ShareConstants';
 import { OnlineInputRelay } from './client/OnlineInputRelay';
 import { OnlineManager } from './client/OnlineManager';
+import { resolvePartyKitHost } from './client/PartyKitHost';
 import { OnlinePositionSender } from './client/OnlinePositionSender';
 import { OnlineRoomTracker } from './client/OnlineRoomTracker';
 import { OnlineStateBroadcaster } from './client/OnlineStateBroadcaster';
@@ -43,7 +44,7 @@ export class OnlineModeApplication {
 
         this.prepareOnlineLayout();
         const tabsLinks = document.querySelector<HTMLElement>('.tabs-links');
-        const partyHost = String(import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999');
+        const partyHost = resolvePartyKitHost();
 
         const modal = new PlayerNameModal({
             onConfirm: (playerName) => {
@@ -664,4 +665,5 @@ export class OnlineModeApplication {
         overlay.appendChild(box);
         document.body.appendChild(overlay);
     }
+
 }
