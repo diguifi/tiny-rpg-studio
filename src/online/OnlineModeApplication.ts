@@ -325,6 +325,9 @@ export class OnlineModeApplication {
                     manager.client.send({ type: 'object-triggered', objectId, roomIndex, newState, byPlayerId: manager.client.sessionToken });
                     positionSender?.sendNow(true);
                 };
+                // After pickup overlay closes, equipment/HP effects are applied — send
+                // updated player-position so host sees the new stats immediately.
+                gameEngine.onOnlineStateChanged = () => positionSender?.sendNow(true);
             }
         });
 

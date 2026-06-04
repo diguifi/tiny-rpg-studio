@@ -183,6 +183,8 @@ export class GameEngine {
     if (!this.gameState.isPickupOverlayActive()) return;
     this.gameState.hidePickupOverlay();
     this.renderer.draw();
+    // Notify so the guest can force-send player-position with updated HP/equipment
+    this.onOnlineStateChanged?.();
   }
 
   isLevelUpCelebrationActive(): boolean {
