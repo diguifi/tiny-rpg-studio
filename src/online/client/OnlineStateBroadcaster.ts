@@ -1,6 +1,7 @@
 import type { OnlineClient } from './OnlineClient';
 import type { WorldStateDiff, EnemyNetState, FullStateSnapshot } from '../shared/protocol';
 import type { EnemyDefinition, VariableDefinition } from '../../types/gameState';
+import { ShareConstants } from '../../runtime/infra/share/ShareConstants';
 
 type ObjectNetState = { collected: boolean; on: boolean; opened?: boolean; x?: number; y?: number };
 
@@ -157,11 +158,18 @@ export class OnlineStateBroadcaster {
         if (typeof this.gameState.getVariables !== 'function') return result;
         const vars = this.gameState.getVariables() as VariableDefinition[] | null;
         if (!Array.isArray(vars)) return result;
-        vars.forEach((v, i) => {
+        // Key by the variable's position in VARIABLE_IDS — NOT the raw array index —
+        // so the guest's applyVariableDiff (which reads VARIABLE_IDS[idx]) maps back to
+        // the same id. The two lists differ (VARIABLE_IDS has 'skill:bard' at index 9),
+        // so a raw-index encoding misaligns every variable from var-10 onward.
+        const ids = ShareConstants.VARIABLE_IDS;
+        for (const v of vars) {
+            const i = ids.indexOf(v.id);
+            if (i < 0) continue;
             // Variables are stored as booleans at runtime; encode as 0/1 for the wire format
             if (typeof v.value === 'boolean') result[i] = v.value ? 1 : 0;
             else if (typeof v.value === 'number') result[i] = v.value;
-        });
+        }
         return result;
     }
 
