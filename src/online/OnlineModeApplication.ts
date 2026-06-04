@@ -8,6 +8,7 @@ import { OnlinePositionSender } from './client/OnlinePositionSender';
 import { OnlineRoomTracker } from './client/OnlineRoomTracker';
 import { OnlineStateBroadcaster } from './client/OnlineStateBroadcaster';
 import { OnlineStateSync } from './client/OnlineStateSync';
+import { ChatPanel } from './ui/ChatPanel';
 import { ConnectionIndicator } from './ui/ConnectionIndicator';
 import { LobbyScreen } from './ui/LobbyScreen';
 import { OnlineToast } from './ui/OnlineToast';
@@ -97,6 +98,9 @@ export class OnlineModeApplication {
         const pendingSnapshotTargets: string[] = [];
         const playerMeta = new Map<string, { name: string; playerIndex: number }>();
         const remotePositions = new Map<string, RemotePlayerState>();
+        const chatPanel = new ChatPanel(manager.client);
+        chatPanel.mountNearControls();
+        chatPanel.bind();
 
         const serverModal = new ServerStatusModal({
             status: connectionState,
@@ -308,6 +312,18 @@ export class OnlineModeApplication {
                     const index = varIds.indexOf(variableId);
                     if (index < 0) return;
                     manager.client.send({ type: 'variable-changed', variableIndex: index, newValue: value ? 1 : 0 });
+                };
+
+                // After item pickup or object trigger, force a player-position update so
+                // HP, keys, equipment and level changes reach the host immediately,
+                // not waiting until the next movement (sendNow has a position-change guard).
+                gameEngine.onOnlineItemPicked = (itemId, roomIndex) => {
+                    manager.client.send({ type: 'item-picked', itemId, roomIndex, byPlayerId: manager.client.sessionToken });
+                    positionSender?.sendNow(true);
+                };
+                gameEngine.onOnlineObjectTriggered = (objectId, roomIndex, newState) => {
+                    manager.client.send({ type: 'object-triggered', objectId, roomIndex, newState, byPlayerId: manager.client.sessionToken });
+                    positionSender?.sendNow(true);
                 };
             }
         });
@@ -533,7 +549,7 @@ export class OnlineModeApplication {
             const item = game.items?.find((it) => `item-${it.roomIndex}-${it.x}-${it.y}` === msg.itemId);
             if (item) { item.collected = true; found = true; }
             // Also cover object-type collectibles (KEY, SWORD, ARMOR placed as objects)
-            const allObjs = gameEngine.gameState.getAllObjects?.() as Array<{ id?: string; roomIndex: number; x: number; y: number; collected?: boolean }> | undefined;
+            const allObjs = gameEngine.gameState.getAllObjects() as Array<{ id?: string; roomIndex: number; x: number; y: number; collected?: boolean }> | undefined;
             const obj = allObjs?.find((o) => (o.id ?? `obj-${o.roomIndex}-${o.x}-${o.y}`) === msg.itemId);
             if (obj) { obj.collected = true; found = true; }
             if (found) gameEngine.renderer.draw();

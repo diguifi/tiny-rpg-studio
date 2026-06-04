@@ -1067,6 +1067,144 @@ body.editor-mode .editor-mobile-nav-button:focus-visible {
     border-color: #64b5f6;
 }
 
+body.online-mode .online-chat-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+body.online-mode .online-chat {
+    position: relative;
+    display: inline-flex;
+}
+
+body.online-mode .online-chat__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 6px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.02);
+    color: #fff;
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+}
+
+body.online-mode .online-chat__toggle[aria-expanded="true"] {
+    border-color: var(--accent);
+}
+
+body.online-mode .online-chat__panel {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 8px);
+    transform: translateX(-50%);
+    z-index: 40;
+    width: clamp(220px, 68vw, 360px);
+    max-width: calc(100vw - 24px);
+    max-height: min(420px, calc(100vh - 150px));
+    display: grid;
+    grid-template-rows: auto minmax(80px, 1fr) auto;
+    background: var(--panel);
+    border: 4px solid var(--border);
+    color: var(--text);
+    font-family: var(--ui-font-family);
+    text-align: left;
+}
+
+body.online-mode .online-chat__panel[hidden] {
+    display: none;
+}
+
+body.online-mode .online-chat__header {
+    padding: 8px 10px;
+    border-bottom: 4px solid var(--border);
+    color: var(--accent);
+    font-weight: bold;
+}
+
+body.online-mode .online-chat__messages {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+body.online-mode .online-chat__empty {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+body.online-mode .online-chat__message {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+body.online-mode .online-chat__message--self .online-chat__name {
+    color: var(--accent);
+}
+
+body.online-mode .online-chat__name {
+    color: #64b5f6;
+    font-weight: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.online-mode .online-chat__text {
+    color: var(--text);
+    overflow-wrap: anywhere;
+    line-height: var(--lh-text);
+}
+
+body.online-mode .online-chat__form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+    padding: 8px;
+    border-top: 4px solid var(--border);
+}
+
+body.online-mode .online-chat__input {
+    min-width: 0;
+    padding: 7px 8px;
+    border: 1px solid var(--border);
+    background: #0e1118;
+    color: var(--text);
+    font-family: var(--ui-font-family);
+}
+
+body.online-mode .online-chat__send {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    background: var(--accent);
+    color: var(--bg);
+    font-family: var(--ui-font-family);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+@media (max-height: 520px) {
+    body.online-mode .online-chat__panel {
+        max-height: calc(100vh - 96px);
+        grid-template-rows: auto minmax(64px, 1fr) auto;
+    }
+
+    body.online-mode .online-chat__header,
+    body.online-mode .online-chat__messages,
+    body.online-mode .online-chat__form {
+        padding: 6px;
+    }
+}
+
 .game-touch-pad {
     display: none;
     z-index: 2;
@@ -1132,6 +1270,26 @@ body.editor-mode .editor-mobile-nav-button:focus-visible {
         display: none;
     }
 
+    body.online-mode.touch-controls-visible .online-chat {
+        position: absolute;
+        bottom: clamp(72px, 18vw, 128px);
+        left: calc(50% + 84px);
+        z-index: 3;
+        margin: 0;
+    }
+
+    body.online-mode.touch-controls-visible .online-chat__panel {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-width: none;
+        max-height: min(360px, calc(100vh - 136px));
+        top: auto;
+        bottom: 12px;
+        transform: none;
+    }
+
     body.touch-controls-visible .game-touch-pad {
         display: grid;
         position: absolute;
@@ -1156,6 +1314,33 @@ body.editor-mode .editor-mobile-nav-button:focus-visible {
 
     body.game-mode.touch-controls-visible #game-container {
         padding-bottom: clamp(110px, 24vw, 160px);
+    }
+}
+
+@media (max-width: 420px) {
+    body.online-mode .online-chat-actions {
+        width: 100%;
+        padding: 0 8px;
+    }
+
+    body.online-mode .online-chat__panel {
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        top: auto;
+        bottom: 8px;
+        width: auto;
+        max-width: none;
+        max-height: min(390px, calc(100vh - 24px));
+        transform: none;
+    }
+
+    body.online-mode .online-chat__form {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.online-mode .online-chat__send {
+        width: 100%;
     }
 }
 

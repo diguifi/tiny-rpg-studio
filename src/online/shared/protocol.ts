@@ -196,6 +196,24 @@ export type SnapshotRequestMsg = {
     targetId: string;
 };
 
+export type ChatEntry = {
+    id: string;
+    playerId: string;
+    playerName: string;
+    text: string;
+    sentAt: number;
+};
+
+export type ChatMessageMsg = {
+    type: 'chat-message';
+    message: ChatEntry;
+};
+
+export type ChatHistoryMsg = {
+    type: 'chat-history';
+    messages: ChatEntry[];
+};
+
 export type OnlineMessage =
     | PlayerJoinMsg
     | PlayerLeaveMsg
@@ -217,6 +235,8 @@ export type OnlineMessage =
     | PlayerDiedMsg
     | PlayerRespawnedMsg
     | PlayerTookDamageMsg
-    | SnapshotRequestMsg;
+    | SnapshotRequestMsg
+    | ChatMessageMsg
+    | ChatHistoryMsg;
 
 export type OnlineMessageType = OnlineMessage['type'];

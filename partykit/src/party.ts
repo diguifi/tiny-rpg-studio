@@ -29,12 +29,23 @@ type DisconnectedPlayer = {
     disconnectedAt: number;
 };
 
+type ChatEntry = {
+    id: string;
+    playerId: string;
+    playerName: string;
+    text: string;
+    sentAt: number;
+};
+
 const RECONNECT_GRACE_MS = 10_000;
 const MAX_ACTIVE_PLAYERS = 2;
+const MAX_CHAT_MESSAGES = 30;
+const MAX_CHAT_MESSAGE_LENGTH = 180;
 
 export default class GameParty implements Party.Server {
     private players = new Map<string, PlayerState>();
     private disconnected = new Map<string, DisconnectedPlayer>();
+    private chatMessages: ChatEntry[] = [];
     private gameStarted = false;
     private cancelled = false;
 
@@ -50,6 +61,10 @@ export default class GameParty implements Party.Server {
         conn.send(JSON.stringify({
             type: 'player-list',
             players: this.buildPlayerList(),
+        }));
+        conn.send(JSON.stringify({
+            type: 'chat-history',
+            messages: this.chatMessages,
         }));
     }
 
@@ -142,6 +157,10 @@ export default class GameParty implements Party.Server {
                 if (player && player.role !== 'spectator') {
                     this.party.broadcast(message, [sender.id]);
                 }
+                break;
+            }
+            case 'chat-message': {
+                this.handleChatMessage(msg, sender);
                 break;
             }
             default:
@@ -264,6 +283,29 @@ export default class GameParty implements Party.Server {
             player.skills = msg.skills.filter((skill): skill is string => typeof skill === 'string' && skill.length > 0);
         }
         this.party.broadcast(rawMessage, [sender.id]);
+    }
+
+    private handleChatMessage(msg: Record<string, unknown>, sender: Party.Connection): void {
+        const player = this.players.get(sender.id);
+        if (!player) return;
+        const rawMessage = msg.message as { text?: unknown } | undefined;
+        const text = typeof rawMessage?.text === 'string'
+            ? rawMessage.text.trim().replace(/\s+/g, ' ').slice(0, MAX_CHAT_MESSAGE_LENGTH)
+            : '';
+        if (!text) return;
+
+        const entry: ChatEntry = {
+            id: `${Date.now()}-${sender.id}`,
+            playerId: player.sessionToken,
+            playerName: player.name,
+            text,
+            sentAt: Date.now(),
+        };
+        this.chatMessages.push(entry);
+        if (this.chatMessages.length > MAX_CHAT_MESSAGES) {
+            this.chatMessages = this.chatMessages.slice(-MAX_CHAT_MESSAGES);
+        }
+        this.party.broadcast(JSON.stringify({ type: 'chat-message', message: entry }));
     }
 
     private buildPlayerList() {
