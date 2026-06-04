@@ -134,10 +134,17 @@ export default class GameParty implements Party.Server {
                 break;
             }
             case 'player-took-damage':
-            case 'enemy-died':
-            case 'game-over': {
+            case 'enemy-died': {
                 const player = this.players.get(sender.id);
                 if (player?.role === 'host') {
+                    this.party.broadcast(message, [sender.id]);
+                }
+                break;
+            }
+            case 'game-over': {
+                // Any active player can win (guest reaching the end tile sends this too)
+                const player = this.players.get(sender.id);
+                if (player && player.role !== 'spectator') {
                     this.party.broadcast(message, [sender.id]);
                 }
                 break;
@@ -166,6 +173,10 @@ export default class GameParty implements Party.Server {
             default:
                 break;
         }
+    }
+
+    onError(conn: Party.Connection): void {
+        this.onClose(conn);
     }
 
     onClose(conn: Party.Connection): void {
@@ -204,7 +215,7 @@ export default class GameParty implements Party.Server {
         // Check for reconnection within grace period
         this.purgeExpiredDisconnected();
         const prior = this.disconnected.get(sessionToken);
-        if (prior) {
+        if (prior && !this.cancelled) {
             this.disconnected.delete(sessionToken);
             const restored: PlayerState = { ...prior.state, id: sender.id };
             this.players.set(sender.id, restored);
