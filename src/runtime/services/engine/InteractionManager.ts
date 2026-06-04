@@ -405,6 +405,8 @@ class InteractionManager {
     this.showPickupOverlay(containsType, () => {
       this.applyItemEffect(containsType);
     });
+    const objId = (object as unknown as { id?: string }).id ?? `obj-${object.roomIndex}-${object.x}-${object.y}`;
+    this.options?.onObjectTriggered?.(objId, object.roomIndex, true);
     return true;
   }
 

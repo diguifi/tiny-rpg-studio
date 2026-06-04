@@ -497,7 +497,7 @@ export class OnlineModeApplication {
             manager.client.send({ type: 'item-picked', itemId, roomIndex, byPlayerId: manager.client.sessionToken });
         };
         gameEngine.onOnlineObjectTriggered = (objectId, roomIndex, newState) => {
-            manager.client.send({ type: 'object-triggered', objectId, roomIndex, newState });
+            manager.client.send({ type: 'object-triggered', objectId, roomIndex, newState, byPlayerId: manager.client.sessionToken });
         };
     }
 
@@ -517,12 +517,15 @@ export class OnlineModeApplication {
         });
         manager.client.on('item-picked', (msg) => {
             if (msg.byPlayerId === manager.client.sessionToken) return;
+            let found = false;
             const game = gameEngine.getGame() as { items?: Array<{ roomIndex: number; x: number; y: number; collected?: boolean }> };
             const item = game.items?.find((it) => `item-${it.roomIndex}-${it.x}-${it.y}` === msg.itemId);
-            if (item) {
-                item.collected = true;
-                gameEngine.renderer.draw();
-            }
+            if (item) { item.collected = true; found = true; }
+            // Also search game objects (KEY, SWORD, ARMOR etc. placed as objects)
+            const allObjs = gameEngine.gameState.getAllObjects?.() as Array<{ id?: string; roomIndex: number; x: number; y: number; collected?: boolean }> | undefined;
+            const obj = allObjs?.find((o) => (o.id ?? `obj-${o.roomIndex}-${o.x}-${o.y}`) === msg.itemId);
+            if (obj) { obj.collected = true; found = true; }
+            if (found) gameEngine.renderer.draw();
         });
         manager.client.on('object-triggered', (msg) => {
             const objs = gameEngine.gameState.getObjectsForRoom(msg.roomIndex) as Array<{
