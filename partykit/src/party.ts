@@ -1,6 +1,6 @@
 import type * as Party from 'partykit/server';
 
-type OnlineRole = 'host' | 'guest' | 'spectator';
+type OnlineRole = 'host' | 'guest';
 
 type PlayerState = {
     id: string;
@@ -21,6 +21,7 @@ type PlayerState = {
     bootsEquipped?: boolean;
     skills?: string[];
     connectedAt: number;
+    kicked?: boolean;
 };
 
 // Disconnected players kept briefly to support quick reconnection
@@ -107,9 +108,13 @@ export default class GameParty implements Party.Server {
             }
             case 'player-input': {
                 const player = this.players.get(sender.id);
-                if (player && player.role !== 'spectator') {
+                if (player) {
                     this.party.broadcast(message, [sender.id]);
                 }
+                break;
+            }
+            case 'kick-player': {
+                this.handleKickPlayer(msg, sender);
                 break;
             }
             case 'lobby-cancelled': {
@@ -123,9 +128,8 @@ export default class GameParty implements Party.Server {
             }
             case 'player-died':
             case 'player-respawned': {
-                // Any active player can die/respawn — relay from any non-spectator
                 const dyingPlayer = this.players.get(sender.id);
-                if (dyingPlayer && dyingPlayer.role !== 'spectator') {
+                if (dyingPlayer) {
                     if (msg.type === 'player-died') dyingPlayer.alive = false;
                     if (msg.type === 'player-respawned') dyingPlayer.alive = true;
                     this.party.broadcast(message, [sender.id]);
@@ -141,29 +145,12 @@ export default class GameParty implements Party.Server {
                 }
                 break;
             }
-            case 'game-over': {
-                // Any active player can win (guest reaching the end tile sends this too)
-                const player = this.players.get(sender.id);
-                if (player && player.role !== 'spectator') {
-                    this.party.broadcast(message, [sender.id]);
-                }
-                break;
-            }
-            case 'variable-changed': {
-                // Variables are global — relay from any active player (not spectators)
-                const player = this.players.get(sender.id);
-                if (player && player.role !== 'spectator') {
-                    this.party.broadcast(message, [sender.id]);
-                }
-                break;
-            }
+            case 'game-over':
+            case 'variable-changed':
             case 'item-picked':
             case 'object-triggered': {
-                // Any active player can trigger these; broadcast to all others
                 const player = this.players.get(sender.id);
-                if (player && player.role !== 'spectator') {
-                    this.party.broadcast(message, [sender.id]);
-                }
+                if (player) this.party.broadcast(message, [sender.id]);
                 break;
             }
             case 'chat-message': {
@@ -183,11 +170,13 @@ export default class GameParty implements Party.Server {
         const player = this.players.get(conn.id);
         if (!player) return;
 
-        // Keep in disconnected map for reconnection grace period
-        this.disconnected.set(player.sessionToken, {
-            state: player,
-            disconnectedAt: Date.now(),
-        });
+        // Kicked players are not kept in the reconnection grace map
+        if (!player.kicked) {
+            this.disconnected.set(player.sessionToken, {
+                state: player,
+                disconnectedAt: Date.now(),
+            });
+        }
         this.players.delete(conn.id);
 
         if (player.role === 'host') {
@@ -235,15 +224,13 @@ export default class GameParty implements Party.Server {
         }
 
         // New player — determine role
-        const activeCount = [...this.players.values()].filter((p) => p.role !== 'spectator').length;
-        let role: OnlineRole;
-        if (this.players.size === 0) {
-            role = 'host';
-        } else if (activeCount < MAX_ACTIVE_PLAYERS) {
-            role = 'guest';
-        } else {
-            role = 'spectator';
+        const activeCount = this.players.size;
+        if (activeCount >= MAX_ACTIVE_PLAYERS) {
+            sender.send(JSON.stringify({ type: 'server-full' }));
+            sender.close();
+            return;
         }
+        const role: OnlineRole = activeCount === 0 ? 'host' : 'guest';
 
         const player: PlayerState = {
             id: sender.id,
@@ -272,12 +259,14 @@ export default class GameParty implements Party.Server {
         this.broadcastPlayerList();
 
         // Trigger game-start when second active player connects
-        const newActiveCount = [...this.players.values()].filter((p) => p.role !== 'spectator').length;
-        if (!this.gameStarted && newActiveCount >= MAX_ACTIVE_PLAYERS) {
+        if (!this.gameStarted && this.players.size >= MAX_ACTIVE_PLAYERS) {
             this.gameStarted = true;
             this.party.broadcast(JSON.stringify({ type: 'game-start' }));
-        } else if (this.gameStarted && (role === 'guest' || role === 'spectator')) {
-            // Game already in progress — ask the Host to send a full-state-snapshot to this newcomer
+        } else if (this.gameStarted && role === 'guest') {
+            // Game already in progress — tell the newcomer to start immediately so
+            // their client runs the full onGameStart setup (mode, relay, position sender).
+            sender.send(JSON.stringify({ type: 'game-start' }));
+            // Ask the Host to send a full-state-snapshot so the newcomer gets world state.
             const host = this.findOldestActivePlayer('host');
             if (host) {
                 const hostConn = [...this.party.getConnections()].find((c) => c.id === host.id);
@@ -306,11 +295,23 @@ export default class GameParty implements Party.Server {
         this.party.broadcast(rawMessage, [sender.id]);
     }
 
+    private handleKickPlayer(msg: Record<string, unknown>, sender: Party.Connection): void {
+        const host = this.players.get(sender.id);
+        if (host?.role !== 'host') return;
+        const targetToken = typeof msg.targetToken === 'string' ? msg.targetToken : null;
+        if (!targetToken) return;
+        const target = [...this.players.values()].find((p) => p.sessionToken === targetToken);
+        if (!target || target.role === 'host') return;
+        target.kicked = true;
+        const targetConn = [...this.party.getConnections()].find((c) => c.id === target.id);
+        targetConn?.send(JSON.stringify({ type: 'player-kicked' }));
+        targetConn?.close();
+    }
+
     private handleChatMessage(msg: Record<string, unknown>, sender: Party.Connection): void {
         const player = this.players.get(sender.id);
         // Silently drop if the sender hasn't completed player-join yet
         if (!player) return;
-        if (player.role === 'spectator') return;
         const rawMessage = msg.message as { text?: unknown } | undefined;
         const text = typeof rawMessage?.text === 'string'
             ? rawMessage.text.trim().replace(/\s+/g, ' ').slice(0, MAX_CHAT_MESSAGE_LENGTH)

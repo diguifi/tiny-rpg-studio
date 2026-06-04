@@ -34,7 +34,14 @@ export class ChatPanel {
 
         const header = document.createElement('div');
         header.className = 'online-chat__header';
-        header.textContent = 'Chat';
+        const title = document.createElement('span');
+        title.textContent = 'Chat';
+        const closeButton = document.createElement('button');
+        closeButton.className = 'online-chat__close';
+        closeButton.type = 'button';
+        closeButton.textContent = 'X';
+        closeButton.setAttribute('aria-label', 'Fechar chat');
+        header.append(title, closeButton);
 
         this.list = document.createElement('div');
         this.list.className = 'online-chat__messages';
@@ -60,6 +67,7 @@ export class ChatPanel {
         this.root.append(this.toggleButton, this.panel);
 
         this.toggleButton.addEventListener('click', () => this.toggle());
+        closeButton.addEventListener('click', () => this.close());
         this.form.addEventListener('submit', (event) => {
             event.preventDefault();
             this.sendCurrentMessage();
@@ -98,6 +106,12 @@ export class ChatPanel {
             this.input.focus();
             this.scrollToLatest();
         }
+    }
+
+    private close(): void {
+        this.panel.hidden = true;
+        this.toggleButton.setAttribute('aria-expanded', 'false');
+        this.toggleButton.focus();
     }
 
     private sendCurrentMessage(): void {

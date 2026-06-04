@@ -1120,10 +1120,28 @@ body.online-mode .online-chat__panel[hidden] {
 }
 
 body.online-mode .online-chat__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 8px 10px;
     border-bottom: 4px solid var(--border);
     color: var(--accent);
     font-weight: bold;
+}
+
+body.online-mode .online-chat__close {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    min-height: 26px;
+    padding: 0;
+    border: 1px solid var(--border);
+    background: #0e1118;
+    color: var(--text);
+    font-family: var(--ui-font-family);
+    font-weight: bold;
+    cursor: pointer;
 }
 
 body.online-mode .online-chat__messages {

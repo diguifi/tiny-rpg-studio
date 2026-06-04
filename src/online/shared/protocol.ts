@@ -1,4 +1,4 @@
-export type OnlineRole = 'host' | 'guest' | 'spectator';
+export type OnlineRole = 'host' | 'guest';
 
 export type PlayerInfo = {
     id: string;
@@ -196,6 +196,19 @@ export type SnapshotRequestMsg = {
     targetId: string;
 };
 
+export type ServerFullMsg = {
+    type: 'server-full';
+};
+
+export type KickPlayerMsg = {
+    type: 'kick-player';
+    targetToken: string;
+};
+
+export type PlayerKickedMsg = {
+    type: 'player-kicked';
+};
+
 export type ChatEntry = {
     id: string;
     playerId: string;
@@ -237,6 +250,9 @@ export type OnlineMessage =
     | PlayerTookDamageMsg
     | SnapshotRequestMsg
     | ChatMessageMsg
-    | ChatHistoryMsg;
+    | ChatHistoryMsg
+    | ServerFullMsg
+    | KickPlayerMsg
+    | PlayerKickedMsg;
 
 export type OnlineMessageType = OnlineMessage['type'];

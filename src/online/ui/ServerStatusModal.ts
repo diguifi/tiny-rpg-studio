@@ -11,6 +11,7 @@ type ServerStatusModalState = {
     sessionToken: string;
     players: PlayerInfo[];
     pingMs?: number | null;
+    onKickPlayer?: (sessionToken: string) => void;
 };
 
 const text = (key: string, fallback = ''): string => {
@@ -137,6 +138,7 @@ export class ServerStatusModal {
             return section;
         }
 
+        const isHost = this.state.role === 'host';
         for (const player of this.state.players) {
             const entry = document.createElement('div');
             entry.className = 'server-status-modal__player';
@@ -150,6 +152,20 @@ export class ServerStatusModal {
             meta.className = player.alive ? '' : 'is-dead';
 
             entry.append(name, meta);
+
+            const isSelf = player.sessionToken === this.state.sessionToken;
+            if (isHost && !isSelf && player.role === 'guest' && this.state.onKickPlayer) {
+                const kickBtn = document.createElement('button');
+                kickBtn.type = 'button';
+                kickBtn.className = 'server-status-modal__kick';
+                kickBtn.textContent = text('server.modal.kick', 'Kick');
+                kickBtn.addEventListener('click', () => {
+                    this.state.onKickPlayer?.(player.sessionToken);
+                    this.hide();
+                });
+                entry.appendChild(kickBtn);
+            }
+
             section.appendChild(entry);
         }
 

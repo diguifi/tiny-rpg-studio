@@ -21,32 +21,8 @@ export class PlayerList {
 
     update(players: PlayerInfo[], selfSessionToken: string): void {
         this.container.innerHTML = '';
-        const active = players.filter((p) => p.role !== 'spectator');
-        const spectators = players.filter((p) => p.role === 'spectator');
-
-        for (const p of active) {
+        for (const p of players) {
             this.container.appendChild(this.buildEntry(p, p.sessionToken === selfSessionToken));
-        }
-
-        if (spectators.length) {
-            const sep = document.createElement('div');
-            Object.assign(sep.style, {
-                width: '100%',
-                borderTop: '1px solid var(--border, #232734)',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '8px',
-                padding: '4px 10px',
-                color: 'rgba(255,255,255,0.3)',
-                alignItems: 'center',
-            });
-            sep.textContent = 'Espectadores: ';
-            for (const p of spectators) {
-                const el = document.createElement('span');
-                el.textContent = `◈ ${p.name}`;
-                sep.appendChild(el);
-            }
-            this.container.appendChild(sep);
         }
     }
 

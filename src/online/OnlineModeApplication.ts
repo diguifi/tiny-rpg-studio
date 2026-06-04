@@ -109,6 +109,9 @@ export class OnlineModeApplication {
             role: manager.role,
             sessionToken: manager.client.sessionToken,
             players: manager.players,
+            onKickPlayer: (targetToken) => {
+                manager.client.send({ type: 'kick-player', targetToken });
+            },
         });
         this.attachServerButton(tabsLinks, serverModal);
 
@@ -169,6 +172,20 @@ export class OnlineModeApplication {
             players.forEach((p, i) => {
                 const idx = p.role === 'host' ? 0 : p.role === 'guest' ? 1 : 2 + i;
                 playerMeta.set(p.sessionToken, { name: p.name, playerIndex: idx });
+                // Seed remote position from player-list if not yet tracked — makes the
+                // player visible immediately without waiting for their first player-position.
+                if (p.sessionToken !== manager.client.sessionToken && !remotePositions.has(p.sessionToken)) {
+                    remotePositions.set(p.sessionToken, {
+                        id: p.sessionToken,
+                        name: p.name,
+                        playerIndex: idx,
+                        roomIndex: Number(p.room),
+                        x: p.x,
+                        y: p.y,
+                        alive: p.alive,
+                        facing: 'right',
+                    });
+                }
             });
             for (const [id, rp] of remotePositions.entries()) {
                 const meta = playerMeta.get(id);
@@ -337,6 +354,9 @@ export class OnlineModeApplication {
                 if (remote) {
                     remote.alive = false;
                     gameEngine.renderer.entityRenderer.setRemotePlayers([...remotePositions.values()]);
+                    if (manager.isHost) {
+                        updateEnemyAiRemotePlayers();
+                    }
                 }
                 playerList?.update(manager.players.map((p) => ({
                     ...p,
@@ -400,6 +420,9 @@ export class OnlineModeApplication {
                 remote.x = msg.x;
                 remote.y = msg.y;
                 gameEngine.renderer.entityRenderer.setRemotePlayers([...remotePositions.values()]);
+                if (manager.isHost) {
+                    updateEnemyAiRemotePlayers();
+                }
             }
             playerList?.update(manager.players.map((p) => ({
                 ...p,
@@ -437,6 +460,16 @@ export class OnlineModeApplication {
         manager.client.on('server-closed', () => {
             if (manager.gameStarted) return;
             this.showServerClosedOverlay();
+        });
+
+        manager.client.on('server-full', () => {
+            manager.client.disconnect();
+            this.showServerFullOverlay();
+        });
+
+        manager.client.on('player-kicked', () => {
+            manager.client.disconnect();
+            this.showKickedOverlay();
         });
 
         const toast = new OnlineToast();
@@ -649,57 +682,71 @@ export class OnlineModeApplication {
         setTimeout(() => banner.remove(), 5000);
     }
 
-    private static showServerClosedOverlay(): void {
+    private static buildBlockingOverlay(accentColor: string, titleText: string, msgText: string, btnText: string): void {
         const overlay = document.createElement('div');
         Object.assign(overlay.style, {
-            position: 'fixed',
-            inset: '0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(14,15,19,0.94)',
-            zIndex: '10001',
-            fontFamily: 'var(--ui-font-family, monospace)',
-            padding: '16px',
+            position: 'fixed', inset: '0', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(14,15,19,0.94)', zIndex: '10001',
+            fontFamily: 'var(--ui-font-family, monospace)', padding: '16px',
         });
         const box = document.createElement('div');
         Object.assign(box.style, {
             background: 'var(--panel, #151821)',
             border: '4px solid var(--border, #232734)',
-            borderTop: '4px solid #ff4040',
-            padding: 'clamp(16px, 4vw, 24px)',
-            textAlign: 'center',
-            color: 'var(--text, #fff)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
+            borderTop: `4px solid ${accentColor}`,
+            padding: 'clamp(16px, 4vw, 24px)', textAlign: 'center',
+            color: 'var(--text, #fff)', display: 'flex',
+            flexDirection: 'column', gap: '10px',
             width: 'min(280px, calc(100vw - 32px))',
         });
         const title = document.createElement('div');
-        title.textContent = 'Sala encerrada';
-        title.style.color = '#ff4040';
+        title.textContent = titleText;
+        title.style.color = accentColor;
         title.style.fontWeight = 'bold';
         const msg = document.createElement('div');
-        msg.textContent = 'O host encerrou a partida antes de ela começar.';
+        msg.textContent = msgText;
         msg.style.color = 'rgba(255,255,255,0.6)';
-        const reloadBtn = document.createElement('button');
-        reloadBtn.textContent = 'Voltar ao início';
-        Object.assign(reloadBtn.style, {
-            background: 'var(--accent, #5bfa8e)',
-            border: 'none',
-            color: 'var(--bg, #0e0f13)',
-            padding: '7px',
-            width: '100%',
-            fontFamily: 'var(--ui-font-family, monospace)',
-            fontWeight: 'bold',
-            cursor: 'pointer',
+        const btn = document.createElement('button');
+        btn.textContent = btnText;
+        Object.assign(btn.style, {
+            background: 'var(--accent, #5bfa8e)', border: 'none',
+            color: 'var(--bg, #0e0f13)', padding: '7px', width: '100%',
+            fontFamily: 'var(--ui-font-family, monospace)', fontWeight: 'bold', cursor: 'pointer',
         });
-        reloadBtn.addEventListener('click', () => {
+        btn.addEventListener('click', () => {
             globalThis.location.href = `${globalThis.location.origin}${globalThis.location.pathname}`;
         });
-        box.append(title, msg, reloadBtn);
+        box.append(title, msg, btn);
         overlay.appendChild(box);
         document.body.appendChild(overlay);
+    }
+
+    private static showServerFullOverlay(): void {
+        this.buildBlockingOverlay(
+            '#ff8c00',
+            getTextResource('server.full.title', 'Servidor lotado'),
+            getTextResource('server.full.message', 'Esta sala já tem 2 jogadores. Tente outra sala.'),
+            getTextResource('server.kicked.button', 'Voltar ao início'),
+        );
+    }
+
+    private static showKickedOverlay(): void {
+        this.buildBlockingOverlay(
+            '#ff4040',
+            getTextResource('server.kicked.title', 'Você foi expulso'),
+            getTextResource('server.kicked.message', 'O host removeu você da sala.'),
+            getTextResource('server.kicked.button', 'Voltar ao início'),
+        );
+    }
+
+    private static showServerClosedOverlay(): void {
+        this.buildBlockingOverlay(
+            '#ff4040',
+            'Sala encerrada',
+            'O host encerrou a partida antes de ela começar.',
+            'Voltar ao início',
+        );
     }
 
 }
