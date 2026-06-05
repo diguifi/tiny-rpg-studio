@@ -88,11 +88,6 @@ export class OnlineManager {
         this.client.disconnect();
     }
 
-    cancelLobby(): void {
-        this.client.send({ type: 'lobby-cancelled' });
-        this.disconnect();
-    }
-
     get role(): OnlineRole { return this._role; }
     get isHost(): boolean { return this._role === 'host'; }
     get isGuest(): boolean { return this._role === 'guest'; }

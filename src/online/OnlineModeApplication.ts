@@ -447,13 +447,7 @@ export class OnlineModeApplication {
             this.showGameOverBanner(winnerName);
         });
 
-        const lobby = new LobbyScreen({
-            playerName,
-            onPlaySolo: () => {
-                manager.cancelLobby();
-                gameEngine.online.setMode('solo');
-            },
-        });
+        const lobby = new LobbyScreen({ playerName });
 
         manager.client.on('role-changed', (msg) => {
             syncServerModal();

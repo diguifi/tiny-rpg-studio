@@ -48,21 +48,10 @@ export default class GameParty implements Party.Server {
     private disconnected = new Map<string, DisconnectedPlayer>();
     private chatMessages: ChatEntry[] = [];
     private gameStarted = false;
-    private cancelled = false;
 
     constructor(readonly party: Party.Party) {}
 
     onConnect(conn: Party.Connection): void {
-        if (this.cancelled) {
-            if (this.players.size === 0) {
-                // Room was cancelled but is now empty — revive it for the new player.
-                this.cancelled = false;
-            } else {
-                conn.send(JSON.stringify({ type: 'server-closed' }));
-                conn.close();
-                return;
-            }
-        }
         // Send current player list so the newcomer can orient themselves
         conn.send(JSON.stringify({
             type: 'player-list',
@@ -120,21 +109,6 @@ export default class GameParty implements Party.Server {
             }
             case 'kick-player': {
                 this.handleKickPlayer(msg, sender);
-                break;
-            }
-            case 'lobby-cancelled': {
-                const player = this.players.get(sender.id);
-                if (player?.role === 'host') {
-                    this.gameStarted = false;
-                    const hasOtherPlayers = [...this.players.values()].some((p) => p.id !== sender.id);
-                    if (hasOtherPlayers) {
-                        // Other players are still connected — don't close the room.
-                        // onClose() will fire when the host disconnects and promote
-                        // the oldest remaining guest to host automatically.
-                    } else {
-                        this.cancelled = true;
-                    }
-                }
                 break;
             }
             case 'player-died':
@@ -220,10 +194,21 @@ export default class GameParty implements Party.Server {
         const name = typeof msg.name === 'string' ? msg.name.slice(0, 16) : 'Player';
         const sessionToken = typeof msg.sessionToken === 'string' ? msg.sessionToken : sender.id;
 
+        // A single human (sessionToken) may only hold ONE active connection.
+        // On flaky networks (Wi-Fi <-> cellular handoff, sleep/wake, half-open
+        // sockets) PartySocket can reconnect with a fresh conn.id before the old
+        // connection's onClose has fired. Without this guard the same player ends
+        // up occupying two slots, which both bypasses MAX_ACTIVE_PLAYERS (the cap
+        // counts connections, not humans) and breaks the single-host invariant —
+        // producing the "two hosts / four players" corruption. Treat the rejoin as
+        // a takeover: migrate the existing identity (including role) to the new
+        // connection and evict the stale one.
+        if (this.takeOverDuplicateConnection(sessionToken, name, sender)) return;
+
         // Check for reconnection within grace period
         this.purgeExpiredDisconnected();
         const prior = this.disconnected.get(sessionToken);
-        if (prior && !this.cancelled) {
+        if (prior) {
             this.disconnected.delete(sessionToken);
             // Safety net: if someone else was promoted to host while this player
             // was disconnected, they must rejoin as guest to avoid two hosts.
@@ -386,6 +371,53 @@ export default class GameParty implements Party.Server {
             type: 'player-list',
             players: this.buildPlayerList(),
         }));
+    }
+
+    /**
+     * Enforces one active connection per sessionToken. If a live entry with the
+     * same token already exists under a different connection, re-binds that
+     * identity (role, world state) to the new connection and evicts the old one.
+     * Returns true when a takeover happened and the join is fully handled.
+     */
+    private takeOverDuplicateConnection(sessionToken: string, name: string, sender: Party.Connection): boolean {
+        let staleConnId: string | null = null;
+        let staleState: PlayerState | null = null;
+        for (const [connId, p] of this.players) {
+            if (p.sessionToken === sessionToken && connId !== sender.id) {
+                staleConnId = connId;
+                staleState = p;
+                break;
+            }
+        }
+        if (!staleConnId || !staleState) return false;
+
+        // Remove the stale entry BEFORE closing its socket so the resulting
+        // onClose() no-ops (it looks the player up by conn.id) — this prevents a
+        // phantom host promotion and a duplicate disconnected-grace entry.
+        this.players.delete(staleConnId);
+        [...this.party.getConnections()].find((c) => c.id === staleConnId)?.close();
+
+        // This token is now represented solely by the new connection; drop any
+        // stale grace entry so a later reconnect can't resurrect a second slot.
+        this.disconnected.delete(sessionToken);
+
+        const migrated: PlayerState = { ...staleState, id: sender.id, name, kicked: false };
+        this.players.set(sender.id, migrated);
+
+        sender.send(JSON.stringify({ type: 'role-changed', newRole: migrated.role }));
+        this.broadcastPlayerList();
+
+        if (this.gameStarted) {
+            sender.send(JSON.stringify({ type: 'game-start' }));
+            if (migrated.role === 'guest') {
+                const host = this.findOldestActivePlayer('host');
+                if (host) {
+                    const hostConn = [...this.party.getConnections()].find((c) => c.id === host.id);
+                    hostConn?.send(JSON.stringify({ type: 'snapshot-request', targetId: sender.id }));
+                }
+            }
+        }
+        return true;
     }
 
     private findOldestActivePlayer(role: OnlineRole): PlayerState | null {

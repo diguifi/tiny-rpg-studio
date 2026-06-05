@@ -1,6 +1,5 @@
 type LobbyScreenOptions = {
     playerName: string;
-    onPlaySolo: () => void;
 };
 
 export class LobbyScreen {
@@ -73,35 +72,7 @@ export class LobbyScreen {
         waitText.textContent = 'Aguardando P2...';
         waitRow.append(waitDot, waitText);
 
-        const sep = document.createElement('div');
-        sep.style.borderTop = '1px solid var(--border, #232734)';
-        sep.style.margin = '2px 0';
-
-        const soloBtn = document.createElement('button');
-        soloBtn.textContent = 'Jogar sozinho';
-        Object.assign(soloBtn.style, {
-            background: 'transparent',
-            border: '2px solid var(--border, #232734)',
-            color: 'rgba(255,255,255,0.45)',
-            padding: '7px',
-            width: '100%',
-            fontFamily: 'var(--ui-font-family, monospace)',
-            cursor: 'pointer',
-        });
-        soloBtn.addEventListener('mouseover', () => {
-            soloBtn.style.borderColor = 'var(--accent, #5bfa8e)';
-            soloBtn.style.color = 'var(--text, #fff)';
-        });
-        soloBtn.addEventListener('mouseout', () => {
-            soloBtn.style.borderColor = 'var(--border, #232734)';
-            soloBtn.style.color = 'rgba(255,255,255,0.45)';
-        });
-        soloBtn.addEventListener('click', () => {
-            this.remove();
-            this.options.onPlaySolo();
-        });
-
-        box.append(title, playerRow, waitRow, sep, soloBtn);
+        box.append(title, playerRow, waitRow);
         this.overlay.appendChild(box);
     }
 

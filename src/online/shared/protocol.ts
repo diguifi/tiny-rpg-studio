@@ -101,10 +101,6 @@ export type GameOverMsg = {
     winnerName: string;
 };
 
-export type LobbyCancelledMsg = {
-    type: 'lobby-cancelled';
-};
-
 export type FullStateSnapshotMsg = {
     type: 'full-state-snapshot';
     snapshot: FullStateSnapshot;
@@ -249,7 +245,6 @@ export type OnlineMessage =
     | HostLeftMsg
     | GameStartMsg
     | GameOverMsg
-    | LobbyCancelledMsg
     | FullStateSnapshotMsg
     | WorldStateDiffMsg
     | PlayerPositionMsg
