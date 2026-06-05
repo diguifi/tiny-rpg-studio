@@ -195,6 +195,41 @@ describe('PushBox — MovementManager', () => {
     expect(gameState.setPlayerPosition).toHaveBeenCalledWith(3, 2, null);
   });
 
+  it('guest mode: does not move the box locally nor advance the player (host-authoritative)', () => {
+    const box = { type: 'push-box', roomIndex: 0, x: 4, y: 3 };
+    const gameState = createMovementGameState({
+      getObjectAt: vi.fn((_, x, y) => (x === 4 && y === 3 ? box : null)),
+    });
+    const manager = makeMovementManager(gameState);
+    manager.guestMode = true;
+
+    manager.tryMove(1, 0);
+
+    // Box untouched and player blocked — the move is only signalled to the host,
+    // which validates and broadcasts the box's new position back.
+    expect(box.x).toBe(4);
+    expect(box.y).toBe(3);
+    expect(gameState.setPlayerPosition).not.toHaveBeenCalled();
+  });
+
+  it('guest mode: does not reset push boxes locally on room change (host-authoritative)', () => {
+    const gameState = createMovementGameState({
+      getPlayer: vi.fn(() => ({ roomIndex: 0, x: 7, y: 3, lastX: 6 })),
+      getRoomIndex: vi.fn(() => 1),
+      getGame: vi.fn(() => ({
+        rooms: [makeRoom(emptyWalls()), makeRoom(emptyWalls())],
+        sprites: [],
+      })),
+      getObjectAt: vi.fn(() => null),
+    });
+    const manager = makeMovementManager(gameState);
+    manager.guestMode = true;
+
+    manager.tryMove(1, 0);
+
+    expect(gameState.resetPushBoxesForRoom).not.toHaveBeenCalled();
+  });
+
   it('resets push boxes in current room when entering a new room', () => {
     // Player is at the right edge (x=7); moving right crosses into room 1
     const gameState = createMovementGameState({

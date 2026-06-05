@@ -228,9 +228,15 @@ export class OnlineModeApplication {
                 facing: msg.facing,
             });
             if (manager.isHost) {
+                const leftRoom = existing && existing.roomIndex !== msg.roomIndex ? existing.roomIndex : null;
                 roomTracker.updatePlayer(msg.playerId, msg.roomIndex);
                 gameEngine.online.setActiveRooms(roomTracker.getOccupiedRooms());
                 updateEnemyAiRemotePlayers();
+                // Guest left a room — if nobody remains in it, reset its push-boxes
+                // (host-authoritative; the reset broadcasts to the guest).
+                if (leftRoom !== null && !roomTracker.isOccupied(leftRoom)) {
+                    gameEngine.online.resetPushBoxesForRoom(leftRoom);
+                }
             }
             if (!existing || existing.roomIndex !== msg.roomIndex || existing.x !== msg.x || existing.y !== msg.y) {
                 if (manager.isHost) {
@@ -242,6 +248,7 @@ export class OnlineModeApplication {
         });
 
         manager.client.on('player-leave', (msg) => {
+            const leftRoom = remotePositions.get(msg.playerId)?.roomIndex ?? null;
             remotePositions.delete(msg.playerId);
             gameEngine.renderer.entityRenderer.setRemotePlayers([...remotePositions.values()]);
             if (manager.isHost) {
@@ -252,6 +259,10 @@ export class OnlineModeApplication {
                 // Passing an impossible position (-1, -1, -1) guarantees playerOnPlate
                 // is false for every plate, so plates held only by the guest are released.
                 gameEngine.online.checkPressurePlatesForGuest(-1, -1, -1);
+                // Reset push-boxes in the room the guest left empty (host-authoritative).
+                if (leftRoom !== null && !roomTracker.isOccupied(leftRoom)) {
+                    gameEngine.online.resetPushBoxesForRoom(leftRoom);
+                }
             }
         });
 

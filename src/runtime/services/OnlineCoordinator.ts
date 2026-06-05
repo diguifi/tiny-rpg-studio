@@ -43,6 +43,8 @@ export class OnlineCoordinator {
     this.mode = mode;
     // Guest mode blocks local switch mutation; the host applies it authoritatively.
     this.engine.interactionManager.guestMode = mode === 'online-guest';
+    // Guest mode also makes push-boxes host-authoritative (no local move/reset).
+    this.engine.movementManager.guestMode = mode === 'online-guest';
   }
 
   isGuestMode(): boolean {
@@ -112,6 +114,14 @@ export class OnlineCoordinator {
 
   checkPressurePlatesForGuest(guestX: number, guestY: number, guestRoomIndex: number): void {
     this.engine.interactionManager.checkPressurePlatesAt({ x: guestX, y: guestY, roomIndex: guestRoomIndex });
+    this.notifyStateChanged();
+  }
+
+  // Host-authoritative push-box reset. Called when a room is vacated (a guest left
+  // it or disconnected); the host restores the boxes to their origin and the change
+  // propagates to the guest through the normal world-state broadcast.
+  resetPushBoxesForRoom(roomIndex: number): void {
+    this.engine.gameState.resetPushBoxesForRoom?.(roomIndex);
     this.notifyStateChanged();
   }
 

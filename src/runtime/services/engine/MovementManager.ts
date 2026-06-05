@@ -131,6 +131,10 @@ class MovementManager {
   combatStunManager: CombatStunManagerApi | null;
   options: MovementManagerOptions;
   transitioning: boolean;
+  // When true (online guest), push-boxes are host-authoritative: the guest never
+  // moves or resets them locally. It only sends a move signal; the host validates,
+  // moves the box, and broadcasts the result back (applied via OnlineStateSync).
+  guestMode = false;
 
   constructor({
     gameState,
@@ -340,6 +344,14 @@ class MovementManager {
     }
 
     if (objectAtTarget?.type === 'push-box') {
+      // Guest: never move the box locally. The move signal is still sent to the
+      // host (GameEngine.tryMove fires notifyMove after this returns); the host
+      // validates and broadcasts the box's new position. Block the player here so
+      // it doesn't overlap the box — it advances once the host's broadcast frees
+      // the tile.
+      if (this.guestMode) {
+        return;
+      }
       const boxNewX = targetX + dx;
       const boxNewY = targetY + dy;
       if (!this.canPushBoxTo(targetRoomIndex, boxNewX, boxNewY, targetRoom)) {
@@ -379,7 +391,9 @@ class MovementManager {
     const supportsTransition = enteringNewRoom;
     const fromFrame = supportsTransition ? this.renderer.captureGameplayFrame() : null;
 
-    if (enteringNewRoom) {
+    // Push-box reset on room exit is host-authoritative. The guest must not reset
+    // locally — the host detects the guest leaving and broadcasts the reset.
+    if (enteringNewRoom && !this.guestMode) {
       this.gameState.resetPushBoxesForRoom?.(roomIndex);
     }
 
