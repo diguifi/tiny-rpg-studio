@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { GameState } from '../../runtime/domain/GameState';
 import { Renderer } from '../../runtime/adapters/Renderer';
 
 vi.mock('../../runtime/adapters/renderer/RendererPalette', () => ({
@@ -52,12 +53,16 @@ vi.mock('../../runtime/adapters/renderer/RendererTileRenderer', () => ({
 
 vi.mock('../../runtime/adapters/renderer/RendererEntityRenderer', () => ({
   RendererEntityRenderer: class {
+    attackTelegraph = null;
     setViewportOffset() {}
     drawObjects() {}
     drawItems() {}
     drawNPCs() {}
     drawEnemies() {}
     drawPlayer() {}
+    drawRemotePlayers() {}
+    drawAllEnemyLivesMarkers() {}
+    drawFlyingLifeSquares() {}
     drawTileIconOnPlayer() {}
   },
 }));
@@ -104,6 +109,40 @@ vi.mock('../../runtime/adapters/renderer/RendererOverlayRenderer', () => ({
     drawPickupOverlay() {}
     drawGameOverScreen() {}
     drawLevelUpOverlayFull() {}
+  },
+}));
+
+vi.mock('../../runtime/adapters/renderer/RendererCombatAnimator', () => ({
+  RendererCombatAnimator: class {},
+}));
+
+vi.mock('../../runtime/adapters/renderer/RendererCameraShake', () => ({
+  RendererCameraShake: class {
+    getCurrentOffset() {
+      return { x: 0, y: 0 };
+    }
+  },
+}));
+
+vi.mock('../../runtime/adapters/renderer/RendererFloatingText', () => ({
+  RendererFloatingText: class {
+    draw() {}
+  },
+}));
+
+vi.mock('../../runtime/adapters/renderer/RendererParticleSystem', () => ({
+  RendererParticleSystem: class {
+    draw() {}
+  },
+}));
+
+vi.mock('../../runtime/adapters/renderer/RendererAttackTelegraph', () => ({
+  RendererAttackTelegraph: class {},
+}));
+
+vi.mock('../../runtime/adapters/renderer/RendererSwordSwing', () => ({
+  RendererSwordSwing: class {
+    draw() {}
   },
 }));
 
@@ -210,6 +249,50 @@ describe('Renderer', () => {
       globalThis.Event = originalEvent;
       vi.clearAllTimers();
       vi.useRealTimers();
+    }
+  });
+
+  it('keeps the HUD inventory visible after leveling up with a sword equipped', () => {
+    const ctx = {
+      imageSmoothingEnabled: true,
+      clearRect: vi.fn(),
+      save: vi.fn(),
+      translate: vi.fn(),
+      fillRect: vi.fn(),
+      restore: vi.fn(),
+      fillText: vi.fn(),
+      strokeRect: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+
+    const canvas = {
+      width: 64,
+      height: 132,
+      getContext: () => ctx,
+    } as unknown as HTMLCanvasElement;
+
+    const startLoopSpy = vi.spyOn(Renderer.prototype, 'startTileAnimationLoop').mockImplementation(() => {});
+
+    try {
+      const gameState = new GameState();
+      gameState.setSwordType('sword');
+      gameState.setSwordDurability(5);
+      gameState.addExperience(gameState.getExperienceToNext());
+      gameState.hideLevelUpCelebration();
+
+      expect(gameState.getSwordType()).toBe('sword');
+      expect(gameState.isLevelUpOverlayActive()).toBe(true);
+
+      const renderer = new Renderer(canvas, gameState, {
+        getAnimationFrameCount: vi.fn(() => 1),
+        advanceAnimationFrame: vi.fn(() => 0),
+      }, {});
+      renderer.hudRenderer.drawInventory = vi.fn();
+
+      renderer.draw();
+
+      expect(renderer.hudRenderer.drawInventory).toHaveBeenCalled();
+    } finally {
+      startLoopSpy.mockRestore();
     }
   });
 });

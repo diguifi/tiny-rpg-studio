@@ -347,6 +347,9 @@ class Renderer {
 
         if (levelUpOverlayActive) {
             this.overlayRenderer.drawLevelUpOverlayFull(ctx);
+            if (!this.shouldHideHud()) {
+                this.hudRenderer.drawInventory(ctx, bottomHudArea);
+            }
         }
     }
 
