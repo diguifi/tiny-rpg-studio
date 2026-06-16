@@ -236,7 +236,7 @@ body.game-mode .tabs {
     }
 
     body.game-mode #game-container {
-        justify-content: flex-start;
+        justify-content: center;
         padding-top: 4px;
         padding-bottom: 10px;
         gap: 8px;
@@ -244,7 +244,7 @@ body.game-mode .tabs {
     }
 
     body.game-mode .game-screen {
-        margin-top: 8px;
+        margin-top: 0;
     }
 }
 
@@ -524,7 +524,7 @@ body.game-mode #game-container {
     padding: 0 clamp(12px, 3vw, 32px) clamp(12px, 3vw, 32px);
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    justify-content: center;
     align-items: center;
     gap: 8px;
 }
@@ -770,7 +770,9 @@ body.editor-mode .editor-mobile-nav-button:focus-visible {
     width: clamp(128px, 45vw, 384px);
     max-width: 100%;
     height: auto;
-    margin-top: 1em;
+    /* JS (setupResponsiveCanvas) sets the real display size; it is centered in
+       the container, so no top margin is needed. */
+    margin-top: 0;
 }
 
 #editor-canvas {
@@ -1036,19 +1038,6 @@ body.editor-mode .editor-mobile-nav-button:focus-visible {
     }
 }
 
-.touch-controls-toggle {
-    display: none;
-    margin-top: 8px;
-    padding: 6px 14px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.02);
-    color: #fff;
-    letter-spacing: var(--ls-normal);
-    font-weight: var(--fw-medium);
-    cursor: pointer;
-}
-
 .game-fullscreen-button {
     position: absolute;
     right: clamp(12px, 4vw, 24px);
@@ -1113,10 +1102,6 @@ body.editor-mode .editor-mobile-nav-button:focus-visible {
         background: rgba(18, 24, 34, 0.7);
         border-color: rgba(100, 181, 246, 0.45);
     }
-}
-
-.touch-controls-toggle[aria-expanded="true"] {
-    border-color: #64b5f6;
 }
 
 body.online-mode .online-chat-actions {
@@ -1275,69 +1260,106 @@ body.online-mode .online-chat__send {
     }
 }
 
+/* ─── Mini D-pad — Game Boy styled, engine (blocky/pixel) theme ──
+   Always visible on touch screens. Rendered as a small overlay pinned to the
+   bottom of the screen, sitting in the empty space below the canvas so it
+   never steals room from the game. */
 .game-touch-pad {
-    display: none;
-    z-index: 2;
-    gap: 6px;
+    display: none; /* shown on touch / mobile via the media query below */
+    position: absolute;
+    left: 50%;
+    bottom: clamp(8px, 2.5vw, 18px);
+    transform: translateX(-50%);
+    z-index: 4;
+    flex-direction: column;
     align-items: center;
+    filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.6));
 }
 
-.game-touch-pad .pad-button {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+.gb-dpad {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 0;
-    touch-action: manipulation;
-}
-
-.game-touch-pad .pad-button:active {
-    transform: translateY(1px);
 }
 
 .game-touch-pad .pad-middle-row {
     display: flex;
-    gap: 6px;
 }
 
+.game-touch-pad .pad-button {
+    width: clamp(30px, 8.5vw, 38px);
+    height: clamp(30px, 8.5vw, 38px);
+    padding: 0;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.62);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.85);
+    /* Molded dark plastic look (no rounded corners — engine theme is blocky). */
+    background: linear-gradient(155deg, #2b3340 0%, #12161f 52%, #070910 100%);
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.16),
+        inset 1px 0 0 rgba(255, 255, 255, 0.05),
+        inset -1px 0 0 rgba(0, 0, 0, 0.6),
+        inset 0 -3px 3px rgba(0, 0, 0, 0.75),
+        0 0 0 1px #05070b;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: background 0.06s, color 0.06s, box-shadow 0.06s, transform 0.04s;
+}
+
+/* Center hub: an embossed square so the cross reads as one molded piece. */
 .game-touch-pad .pad-center {
-    opacity: 0;
+    background: linear-gradient(155deg, #1d2330, #0a0d13);
+    color: transparent;
+    position: relative;
 }
 
-.game-touch-pad .pad-up::before {
-    content: '▲';
+.game-touch-pad .pad-center::after {
+    content: '';
+    width: 11px;
+    height: 11px;
+    background: #05070b;
+    box-shadow:
+        inset 0 1px 1px rgba(0, 0, 0, 0.9),
+        0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
-.game-touch-pad .pad-down::before {
-    content: '▼';
+/* Pressed arm: the key physically sinks into the casing, like a real
+   Game Boy button — the raised bevel inverts to a concave/recessed one,
+   the face falls into shadow, and the cap shifts down a hair. */
+.game-touch-pad .pad-button[data-direction]:active,
+.game-touch-pad .pad-button[data-direction].is-pressed {
+    color: rgba(255, 255, 255, 0.38);
+    text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.9);
+    background: linear-gradient(155deg, #07090d 0%, #131822 100%);
+    box-shadow:
+        inset 0 6px 7px rgba(0, 0, 0, 0.9),
+        inset 0 2px 3px rgba(0, 0, 0, 0.95),
+        inset 0 -2px 1px rgba(255, 255, 255, 0.07),
+        0 0 0 1px #05070b;
+    transform: translateY(2px) scale(0.95);
 }
 
-.game-touch-pad .pad-left::before {
-    content: '◀';
-}
-
-.game-touch-pad .pad-right::before {
-    content: '▶';
-}
-
-.game-touch-pad .touch-controls-hide {
-    display: none;
-}
+.game-touch-pad .pad-up::before { content: '▲'; }
+.game-touch-pad .pad-down::before { content: '▼'; }
+.game-touch-pad .pad-left::before { content: '◀'; }
+.game-touch-pad .pad-right::before { content: '▶'; }
 
 @media (max-width: 720px) {
-    .touch-controls-toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
+    /* Mini D-pad is always visible on touch screens. */
+    .game-touch-pad {
+        display: flex;
     }
 
-    body.touch-controls-visible .touch-controls-toggle {
-        display: none;
+    /* Pin the canvas to the top so the D-pad overlay sits in the empty space
+       below it rather than over the game. */
+    body.game-mode #game-container {
+        justify-content: flex-start;
     }
 
     body.online-mode.touch-controls-visible .online-chat {
@@ -1360,31 +1382,6 @@ body.online-mode .online-chat__send {
         transform: none;
     }
 
-    body.touch-controls-visible .game-touch-pad {
-        display: grid;
-        position: absolute;
-        bottom: clamp(72px, 18vw, 128px);
-        left: 50%;
-        transform: translateX(-50%);
-        justify-items: center;
-    }
-
-    body.touch-controls-visible .game-touch-pad .touch-controls-hide {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 4px 10px;
-        border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.05);
-        letter-spacing: var(--ls-normal);
-        margin-bottom: 4px;
-        color: #fff;
-    }
-
-    body.game-mode.touch-controls-visible #game-container {
-        padding-bottom: clamp(110px, 24vw, 160px);
-    }
 }
 
 @media (max-width: 420px) {

@@ -160,15 +160,12 @@ class TinyRPGApplication {
   }
 
   static bindTouchPad(gameEngine: GameEngine): void {
+    // The mini D-pad is always visible on touch screens (CSS-driven); here we
+    // only wire its arrows to player movement / dialog advancing.
     const touchButtons = document.querySelectorAll<HTMLButtonElement>(
       '.game-touch-pad .pad-button[data-direction]',
     );
-    const toggleButton = document.getElementById('touch-controls-toggle');
-    const hideButton = document.getElementById('touch-controls-hide');
-    const padContainer = document.getElementById('mobile-touch-pad');
-
-    if (!touchButtons.length || !(toggleButton instanceof HTMLButtonElement) || !padContainer)
-      return;
+    if (!touchButtons.length) return;
 
     type Direction = 'left' | 'right' | 'up' | 'down';
     const directionMap: Record<Direction, [number, number]> = {
@@ -179,10 +176,14 @@ class TinyRPGApplication {
     };
 
     touchButtons.forEach((btn) => {
+      // Touch can't rely on CSS :active (and our preventDefault suppresses it),
+      // so we drive the "pressed" visual with a class while the finger is down.
+      const release = () => btn.classList.remove('is-pressed');
       btn.addEventListener(
         'touchstart',
         (ev) => {
           ev.preventDefault();
+          btn.classList.add('is-pressed');
           const dialog = gameEngine.gameState.getDialog();
           if (dialog.active) {
             if (dialog.page >= dialog.maxPages) {
@@ -200,64 +201,9 @@ class TinyRPGApplication {
         },
         { passive: false },
       );
+      btn.addEventListener('touchend', release);
+      btn.addEventListener('touchcancel', release);
     });
-
-    let showControlsText = '';
-    let hideControlsText = '';
-
-    const syncTouchTexts = () => {
-      showControlsText = getTextResource('touchControls.show');
-      hideControlsText = getTextResource('touchControls.hide');
-      toggleButton.textContent = showControlsText;
-      if (hideButton instanceof HTMLButtonElement) {
-        hideButton.textContent = hideControlsText;
-        hideButton.setAttribute('aria-label', hideControlsText);
-      }
-    };
-
-    syncTouchTexts();
-
-    const updateToggleState = () => {
-      const isVisible = document.body.classList.contains('touch-controls-visible');
-      toggleButton.setAttribute('aria-expanded', isVisible ? 'true' : 'false');
-      toggleButton.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
-      padContainer.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
-      if (!isVisible) {
-        toggleButton.textContent = showControlsText;
-      }
-      if (hideButton instanceof HTMLButtonElement) {
-        hideButton.hidden = !isVisible;
-        if (isVisible) {
-          hideButton.textContent = hideControlsText;
-        }
-      }
-    };
-
-    toggleButton.addEventListener('click', () => {
-      document.body.classList.add('touch-controls-visible');
-      updateToggleState();
-    });
-
-    if (hideButton instanceof HTMLButtonElement) {
-      hideButton.addEventListener('click', () => {
-        document.body.classList.remove('touch-controls-visible');
-        updateToggleState();
-      });
-    }
-
-    const hideControls = () => {
-      document.body.classList.remove('touch-controls-visible');
-      updateToggleState();
-    };
-
-    document.addEventListener('editor-tab-activated', hideControls);
-    document.addEventListener('game-tab-activated', updateToggleState);
-    document.addEventListener('language-changed', () => {
-      syncTouchTexts();
-      updateToggleState();
-    });
-
-    updateToggleState();
   }
 
   static bindFullscreenButton(): void {
@@ -527,15 +473,46 @@ class TinyRPGApplication {
       return;
     }
 
+    // The .game-screen wrapper hugs the canvas; everything else inside the
+    // container (mobile touch toggle, online player list, etc.) is chrome whose
+    // height must be reserved so the canvas never grows underneath it.
+    const gameScreen = gameCanvas.closest('.game-screen') ?? gameCanvas.parentElement;
+
+    const isVisibleFlowChild = (el: Element): boolean => {
+      const cs = getComputedStyle(el);
+      if (cs.position === 'absolute' || cs.position === 'fixed') return false;
+      if (cs.display === 'none') return false;
+      return el === gameScreen || el.getClientRects().length > 0;
+    };
+
     const resizeCanvas = () => {
+      const cs = getComputedStyle(gameContainer);
+      const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+      const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      const gap = parseFloat(cs.rowGap || cs.gap || '') || 0;
       const rect = gameContainer.getBoundingClientRect();
-      const availableWidth = rect.width || globalThis.innerWidth;
-      const availableHeight = rect.height || globalThis.innerHeight;
+
+      // Sum the height of every visible sibling that shares the column with the
+      // canvas, plus the flex gaps between them, so we can subtract it.
+      let reservedY = 0;
+      let flowChildren = 0;
+      for (const child of Array.from(gameContainer.children)) {
+        if (!isVisibleFlowChild(child)) continue;
+        flowChildren += 1;
+        const ccs = getComputedStyle(child);
+        const marginY = (parseFloat(ccs.marginTop) || 0) + (parseFloat(ccs.marginBottom) || 0);
+        // Reserve only the wrapper's margins (its size is what we are solving for).
+        reservedY += child === gameScreen ? marginY : (child as HTMLElement).offsetHeight + marginY;
+      }
+      if (flowChildren > 1) reservedY += gap * (flowChildren - 1);
+
+      const availableWidth = Math.max(64, (rect.width || globalThis.innerWidth) - padX);
+      const availableHeight = Math.max(64, (rect.height || globalThis.innerHeight) - padY - reservedY);
       const aspectRatio = (gameCanvas.height || 1) / (gameCanvas.width || 1);
-      const maxWidth = Math.max(128, availableWidth * 0.9);
-      const maxHeight = Math.max(128, availableHeight * 0.9);
-      const widthLimitedByHeight = maxHeight / aspectRatio;
-      const targetWidth = Math.min(maxWidth, widthLimitedByHeight);
+
+      // Fit within both axes, preserving aspect ratio, leaving a sliver of room.
+      const FILL = 0.98;
+      const targetWidth = Math.min(availableWidth, availableHeight / aspectRatio) * FILL;
       const targetHeight = targetWidth * aspectRatio;
       gameCanvas.style.width = `${targetWidth}px`;
       gameCanvas.style.height = `${targetHeight}px`;
@@ -546,6 +523,14 @@ class TinyRPGApplication {
     globalThis.addEventListener('resize', scheduleResize);
     document.addEventListener('game-tab-activated', scheduleResize);
     document.addEventListener('fullscreenchange', scheduleResize);
+
+    // Re-fit when layout-affecting body classes change — switching between
+    // game/editor mode and toggling the mobile touch controls both alter the
+    // chrome that surrounds the canvas.
+    if (typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(scheduleResize);
+      observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
 
     scheduleResize();
   }

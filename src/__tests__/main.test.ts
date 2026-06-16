@@ -388,19 +388,11 @@ describe('TinyRPGApplication.bindTouchPad', () => {
   beforeEach(() => {
     engine = new MockTouchGameEngine();
     document.body.innerHTML = `
-      <div id="mobile-touch-pad"></div>
-      <button id="touch-controls-toggle"></button>
-      <button id="touch-controls-hide"></button>
-      <div class="game-touch-pad">
+      <div id="mobile-touch-pad" class="game-touch-pad">
         <button class="pad-button" data-direction="left"></button>
         <button class="pad-button" data-direction="up"></button>
       </div>
     `;
-    vi.spyOn(TextResources, 'get').mockImplementation((key: string | null | undefined) => {
-      if (key === 'touchControls.show') return 'Show Controls';
-      if (key === 'touchControls.hide') return 'Hide Controls';
-      return '';
-    });
   });
 
   afterEach(() => {
@@ -408,8 +400,8 @@ describe('TinyRPGApplication.bindTouchPad', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns early when required touch pad elements are missing', () => {
-    document.body.innerHTML = `<button id="touch-controls-toggle"></button>`;
+  it('returns early when there are no direction buttons', () => {
+    document.body.innerHTML = `<div id="mobile-touch-pad"></div>`;
     expect(() => TinyRPGApplication.bindTouchPad(asTouchPadGameEngine(engine))).not.toThrow();
   });
 
@@ -420,50 +412,9 @@ describe('TinyRPGApplication.bindTouchPad', () => {
     expect(engine.tryMove).toHaveBeenCalledWith(-1, 0);
   });
 
-  it('shows and hides touch controls via toggle and hide buttons', () => {
-    TinyRPGApplication.bindTouchPad(asTouchPadGameEngine(engine));
-    const toggle = document.getElementById('touch-controls-toggle') as HTMLButtonElement;
-    const hide = document.getElementById('touch-controls-hide') as HTMLButtonElement;
-    const pad = document.getElementById('mobile-touch-pad') as HTMLElement;
-
-    toggle.click();
-    expect(document.body.classList.contains('touch-controls-visible')).toBe(true);
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(pad.getAttribute('aria-hidden')).toBe('false');
-    expect(hide.hidden).toBe(false);
-
-    hide.click();
-    expect(document.body.classList.contains('touch-controls-visible')).toBe(false);
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(hide.hidden).toBe(true);
-  });
-
-  it('updates labels on language-changed and hides controls on editor-tab-activated', () => {
-    TinyRPGApplication.bindTouchPad(asTouchPadGameEngine(engine));
-    const toggle = document.getElementById('touch-controls-toggle') as HTMLButtonElement;
-    const hide = document.getElementById('touch-controls-hide') as HTMLButtonElement;
-
-    document.body.classList.add('touch-controls-visible');
-    vi.spyOn(TextResources, 'get').mockImplementation((key: string | null | undefined) => {
-      if (key === 'touchControls.show') return 'Mostrar';
-      if (key === 'touchControls.hide') return 'Ocultar';
-      return '';
-    });
-
-    document.dispatchEvent(new CustomEvent('language-changed'));
-    expect(hide.textContent).toBe('Ocultar');
-
-    document.dispatchEvent(new CustomEvent('editor-tab-activated'));
-    expect(document.body.classList.contains('touch-controls-visible')).toBe(false);
-    expect(toggle.textContent).toBe('Mostrar');
-  });
-
   it('ignores touch buttons without data-direction', () => {
     document.body.innerHTML = `
-      <div id="mobile-touch-pad"></div>
-      <button id="touch-controls-toggle"></button>
-      <button id="touch-controls-hide"></button>
-      <div class="game-touch-pad">
+      <div id="mobile-touch-pad" class="game-touch-pad">
         <button class="pad-button"></button>
       </div>
     `;
@@ -752,8 +703,10 @@ describe('TinyRPGApplication.setupResponsiveCanvas', () => {
     TinyRPGApplication.setupResponsiveCanvas();
     const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
-    expect(canvas.style.width).toBe('360px');
-    expect(canvas.style.height).toBe('180px');
+    // 400x300 container, 200x100 canvas (aspect 0.5), no padding/chrome in jsdom:
+    // min(400, 300/0.5) * 0.98 fill = 392 wide, 196 tall.
+    expect(canvas.style.width).toBe('392px');
+    expect(canvas.style.height).toBe('196px');
 
     window.dispatchEvent(new Event('resize'));
     document.dispatchEvent(new CustomEvent('game-tab-activated'));

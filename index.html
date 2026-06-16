@@ -137,30 +137,18 @@
                         <canvas id="game-canvas" width="128" height="152"></canvas>
                         <div id="screen-flash" class="screen-flash" aria-hidden="true"></div>
                     </div>
-                    <button
-                        id="touch-controls-toggle"
-                        class="touch-controls-toggle"
-                        type="button"
-                        aria-controls="mobile-touch-pad"
-                        aria-expanded="false"
-                        data-text-key="touchControls.show"
-                    ></button>
-                    <div id="mobile-touch-pad" class="game-touch-pad" aria-hidden="true">
-                        <button
-                            id="touch-controls-hide"
-                            class="touch-controls-hide"
-                            type="button"
-                            aria-label=""
-                            data-text-key="touchControls.hide"
-                            data-aria-label-key="touchControls.hide"
-                        ></button>
-                        <button class="pad-button pad-up" data-direction="up" aria-label="" data-aria-label-key="touchControls.upLabel"></button>
-                        <div class="pad-middle-row">
-                            <button class="pad-button pad-left" data-direction="left" aria-label="" data-aria-label-key="touchControls.leftLabel"></button>
-                            <button class="pad-button pad-center" tabindex="-1" aria-hidden="true"></button>
-                            <button class="pad-button pad-right" data-direction="right" aria-label="" data-aria-label-key="touchControls.rightLabel"></button>
+                    <!-- Always-on mini D-pad (Game Boy styled). Overlays the empty
+                         area below the screen so it never shrinks the game canvas. -->
+                    <div id="mobile-touch-pad" class="game-touch-pad">
+                        <div class="gb-dpad">
+                            <button class="pad-button pad-up" data-direction="up" aria-label="" data-aria-label-key="touchControls.upLabel"></button>
+                            <div class="pad-middle-row">
+                                <button class="pad-button pad-left" data-direction="left" aria-label="" data-aria-label-key="touchControls.leftLabel"></button>
+                                <span class="pad-button pad-center" aria-hidden="true"></span>
+                                <button class="pad-button pad-right" data-direction="right" aria-label="" data-aria-label-key="touchControls.rightLabel"></button>
+                            </div>
+                            <button class="pad-button pad-down" data-direction="down" aria-label="" data-aria-label-key="touchControls.downLabel"></button>
                         </div>
-                        <button class="pad-button pad-down" data-direction="down" aria-label="" data-aria-label-key="touchControls.downLabel"></button>
                     </div>
                 </div>
             </div>

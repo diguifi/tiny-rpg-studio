@@ -396,8 +396,6 @@ class EditorExportService {
                 #game-container{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;background-color:#000;overflow:hidden}
                 .game-controls{display:flex;justify-content:center;margin-top:1rem}
                 canvas{image-rendering:pixelated;image-rendering:crisp-edges}
-                .touch-controls-toggle{display:inline-flex !important;align-items:center;gap:6px}
-                body.touch-controls-visible .touch-controls-toggle{display:none !important}
                 </style>
                 <script>
                 console.log('[TinyRPG Export] Booting exported build');
