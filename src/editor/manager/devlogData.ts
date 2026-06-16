@@ -65,13 +65,6 @@ export const DEVLOG_ENTRIES: DevlogEntry[] = [
       'The big one: invite a friend and explore the same world at the same time. Player movement, switches, pressure plates, pushable boxes, and rewards all stay in sync between you, and a built-in chat lets you talk while you play.',
   },
   {
-    id: '2026-06-03-dream-feature',
-    date: '2026-06-03',
-    title: 'Dream sequences',
-    description:
-      'Added a new "dream" tool for crafting surreal scenes, flashbacks, or imaginary moments inside your story.',
-  },
-  {
     id: '2026-06-02-music-volume',
     date: '2026-06-02',
     title: 'Background music volume control',
