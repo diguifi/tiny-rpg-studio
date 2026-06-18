@@ -1,17 +1,18 @@
 import './styles.css';
 import { BootLoadingScreen } from './BootLoadingScreen';
 import { applyFontConfig } from './config/FontConfig';
-import { EditorManager } from './editor/EditorManager';
+import type { EditorManager } from './editor/EditorManager';
 import { EditorExportService } from './editor/modules/EditorExportService';
 import { ExploreModal } from './editor/modules/ExploreModal';
 import { DevlogModal } from './editor/modules/DevlogModal';
-import { OnlineModeApplication } from './online/OnlineModeApplication';
 import { GameEngine } from './runtime/services/GameEngine';
 import { ShareUtils } from './runtime/infra/share/ShareUtils';
 import { getTinyRpgApi, setTinyRpgApi, type TinyRpgApi } from './runtime/infra/TinyRpgApi';
 import { TextResources } from './runtime/adapters/TextResources';
 import { soundEngine } from './runtime/services/SoundEngine';
 import { normalizeBackgroundMusicVolume } from './runtime/infra/share/BackgroundMusicVideoId';
+import { PerformanceProfiler, performanceProfiler } from './runtime/debug/PerformanceProfiler';
+import { loadAnalyticsWhenIdle } from './analytics/loadAnalytics';
 
 const getTextResource = (key: string, fallback = ''): string => {
   const value = TextResources.get(key, fallback) as string;
@@ -62,6 +63,10 @@ class TinyRPGApplication {
   static initializeApplication(): void {
     applyFontConfig();
 
+    // Load analytics off the boot critical path (idle) for every entry path —
+    // normal, online and export — restoring the coverage the old <head> gtag had.
+    loadAnalyticsWhenIdle();
+
     const onlineGuid = this.detectOnlineMode();
     if (onlineGuid) {
       this.bootOnlineMode(onlineGuid);
@@ -73,10 +78,31 @@ class TinyRPGApplication {
     const gameCanvas = document.getElementById('game-canvas');
     if (!(gameCanvas instanceof HTMLCanvasElement)) return;
 
-    const gameEngine = new GameEngine(gameCanvas);
-    this.loadSharedGameIfAvailable(gameEngine);
+    // Enable the profiler before the engine is built so boot work is measured;
+    // the time() wrappers below are no-ops when profiling is off. See AP-9.
+    if (PerformanceProfiler.isRequested()) {
+      performanceProfiler.enable({ renderLoop: PerformanceProfiler.renderLoopRequested() });
+    }
+    const gameEngine = performanceProfiler.time('boot.engineCtor', () => new GameEngine(gameCanvas));
+    performanceProfiler.time('boot.loadShared', () => this.loadSharedGameIfAvailable(gameEngine));
+    this.setupPerformanceProfiler(gameEngine);
     const isExportMode = Boolean((globalThis as Record<string, unknown>).__TINY_RPG_EXPORT_MODE);
     let editorManager: EditorManager | null = null;
+    let editorLoad: Promise<void> | null = null;
+    // The editor bundle is code-split and loaded on first editor activation, so a
+    // player who only opens a shared game never downloads it. See AP-8.
+    const ensureEditor = (): Promise<void> => {
+      if (isExportMode) return Promise.resolve();
+      if (editorLoad) return editorLoad;
+      editorLoad = import('./editor/EditorManager')
+        .then(({ EditorManager }) => {
+          editorManager = new EditorManager(gameEngine);
+        })
+        .catch((error: unknown) => {
+          console.error('[TinyRPG] Failed to load the editor module.', error);
+        });
+      return editorLoad;
+    };
 
     document.addEventListener('game-tab-activated', (ev) => {
       const event = ev as CustomEvent<TabActivationDetail>;
@@ -90,6 +116,9 @@ class TinyRPGApplication {
       const event = ev as CustomEvent<TabActivationDetail>;
       if (event.detail.initial) return;
       gameEngine.resetGame();
+      // Load the code-split editor and (re-)render its panels once available; the
+      // synchronous renderAll in setupTabs is a no-op until then. See AP-8.
+      void ensureEditor().then(() => getTinyRpgApi()?.renderAll());
     });
 
     const api: TinyRpgApi = {
@@ -113,9 +142,6 @@ class TinyRPGApplication {
     };
     setTinyRpgApi(api);
 
-    if (!isExportMode) {
-      editorManager = new EditorManager(gameEngine);
-    }
     new EditorExportService();
     new ExploreModal();
     new DevlogModal();
@@ -130,6 +156,20 @@ class TinyRPGApplication {
 
     static getLocation(): Location | null {
       return ((globalThis as typeof globalThis & { location?: Location }).location) ?? null;
+    }
+
+    /**
+     * Attaches the profiler's instrumentation to the built engine. `enable()` is
+     * called earlier (before engine construction) so boot work is timed too, so
+     * this is a no-op unless the page was loaded with a `?profile` flag. Inert for
+     * normal players — it never touches production.
+     */
+    static setupPerformanceProfiler(gameEngine: GameEngine): void {
+      // enable() is called earlier (before engine construction) so boot is timed;
+      // here we only attach the instrumentation to the now-built engine.
+      if (!performanceProfiler.isEnabled) return;
+      performanceProfiler.attach(gameEngine as never);
+      console.log('[TinyRPG] Performance profiler enabled.');
     }
 
     static bindResetButton(gameEngine: GameEngine): void {
@@ -427,6 +467,8 @@ class TinyRPGApplication {
         api.resetNPCs();
         api.draw();
         document.dispatchEvent(new CustomEvent('editor-tab-activated', { detail: { initial: false } }));
+        // renderAll is a no-op until the code-split editor module has loaded; the
+        // editor-tab-activated handler re-renders the panels once it is ready (AP-8).
         api.renderAll();
         const currentData = api.exportGameData();
         api.importGameData(currentData);
@@ -471,7 +513,10 @@ class TinyRPGApplication {
   }
 
   static bootOnlineMode(guid: string): void {
-    OnlineModeApplication.boot(guid, (gameEngine) => this.loadSharedGameIfAvailable(gameEngine));
+    // Multiplayer is code-split: only fetched when the URL requests online mode.
+    void import('./online/OnlineModeApplication').then(({ OnlineModeApplication }) => {
+      OnlineModeApplication.boot(guid, (gameEngine) => this.loadSharedGameIfAvailable(gameEngine));
+    });
   }
 
   static loadSharedGameIfAvailable(gameEngine: GameEngine): void {

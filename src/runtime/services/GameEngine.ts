@@ -17,6 +17,7 @@ import { SkillDefinitions } from '../domain/definitions/SkillDefinitions';
 import { GameConfig } from '../../config/GameConfig';
 import type { OnlineConfig, SkillCustomizationMap } from '../../types/gameState';
 import { BackgroundMusicEngine } from './BackgroundMusicEngine';
+import { performanceProfiler } from '../debug/PerformanceProfiler';
 
 type IntroData = { title: string; author: string };
 
@@ -81,7 +82,8 @@ export class GameEngine {
     this.tileManager = new TileManager(this.gameState);
     this.npcManager = new NPCManager(this.gameState);
     this.npcManager.ensureDefaultNPCs();
-    this.renderer = new Renderer(canvas, this.gameState as never, this.tileManager, this.npcManager as never, this);
+    this.renderer = performanceProfiler.time('boot.rendererCtor', () =>
+      new Renderer(canvas, this.gameState as never, this.tileManager, this.npcManager as never, this));
     this.dialogManager = new DialogManager(this.gameState as never, this.renderer);
     this.interactionManager = new InteractionManager(this.gameState as never, this.dialogManager, {
       onPlayerVictory: () => this.handleGameCompletion(),
@@ -136,8 +138,10 @@ export class GameEngine {
 
     // Draw the first frame
     this.syncDocumentTitle();
-    this.renderer.draw();
-    this.showIntroScreen();
+    performanceProfiler.time('boot.firstDraw', () => {
+      this.renderer.draw();
+      this.showIntroScreen();
+    });
     this.startEnemyLoop();
   }
 

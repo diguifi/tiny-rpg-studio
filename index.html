@@ -177,8 +177,9 @@
             color: #6a7280;
         }
     </style>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-D8S0K3NWFV"></script>
+    <!-- Google tag (gtag.js): only the dataLayer stub is synchronous so early
+         events queue; the gtag.js network script is injected on idle by
+         src/analytics/loadAnalytics.ts, off the boot critical path. See AP-1. -->
     <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
@@ -748,22 +749,13 @@
         </div>
     </div>
 
-    <!-- Carregar módulos na ordem correta -->
+    <!--
+        Firebase is loaded LAZILY so it never blocks initial boot. We only define
+        the config and a memoized loader here; nothing is fetched from the CDN
+        until window.TinyRPGEnsureFirebase() is called (i.e. when the user
+        generates a share URL). See AP-1 in PERFORMANCE_REPORT.md.
+    -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-analytics.js";
-        import {
-            addDoc,
-            collection,
-            getDocs,
-            getFirestore,
-            limit,
-            orderBy,
-            query,
-            serverTimestamp,
-            startAfter
-        } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
-
         const firebaseConfig = {
             apiKey: "AIzaSyAQVJVjDKFB7GBKMBUGJ5g5Gj3dGzPIdK8",
             authDomain: "tiny-rpg-studio.firebaseapp.com",
@@ -777,21 +769,34 @@
         window.TinyRPGFirebaseConfig = firebaseConfig;
         window.TinyRPGFirebaseCollection = "shareUrls";
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        let firebasePromise = null;
+        window.TinyRPGEnsureFirebase = function ensureFirebase() {
+            if (firebasePromise) return firebasePromise;
+            firebasePromise = (async () => {
+                const [{ initializeApp }, { getAnalytics }, firestore] = await Promise.all([
+                    import("https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js"),
+                    import("https://www.gstatic.com/firebasejs/12.8.0/firebase-analytics.js"),
+                    import("https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js"),
+                ]);
+                const { addDoc, collection, getDocs, getFirestore, limit, orderBy, query, serverTimestamp, startAfter } = firestore;
 
-        window.TinyRPGFirebaseApp = app;
-        window.TinyRPGFirebaseDb = db;
-        window.TinyRPGFirebaseFirestore = { addDoc, collection, serverTimestamp, getDocs, query, orderBy, limit, startAfter };
-        window.TinyRPGFirebaseGamesCollection = "games";
+                const app = initializeApp(firebaseConfig);
+                const db = getFirestore(app);
 
-        try {
-            if (firebaseConfig.measurementId) {
-                getAnalytics(app);
-            }
-        } catch (error) {
-            console.warn('[TinyRPG] Firebase analytics unavailable.', error);
-        }
+                window.TinyRPGFirebaseApp = app;
+                window.TinyRPGFirebaseDb = db;
+                window.TinyRPGFirebaseFirestore = { addDoc, collection, serverTimestamp, getDocs, query, orderBy, limit, startAfter };
+                window.TinyRPGFirebaseGamesCollection = "games";
+
+                try {
+                    if (firebaseConfig.measurementId) getAnalytics(app);
+                } catch (error) {
+                    console.warn('[TinyRPG] Firebase analytics unavailable.', error);
+                }
+                return true;
+            })();
+            return firebasePromise;
+        };
     </script>
     <script type="module" src="/src/main.ts"></script>
 </body>

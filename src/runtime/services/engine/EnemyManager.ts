@@ -270,8 +270,10 @@ class EnemyManager {
         continue;
       }
 
-      // In online-host mode, skip enemies in rooms with no active players
-      if (this.activeRooms !== null && !this.activeRooms.has(enemy.roomIndex)) {
+      // Only simulate enemies in an active room. Online-host sets activeRooms
+      // explicitly; in solo we scope to the player's current room so off-screen
+      // rooms aren't simulated (and don't force a redraw every tick). See AP-7.
+      if (!this.isRoomActive(enemy.roomIndex, player)) {
         continue;
       }
 
@@ -591,6 +593,17 @@ class EnemyManager {
     }
   }
 
+  /**
+   * Whether an enemy's room should be simulated this tick. Online-host scopes to
+   * the set of rooms with active players (`activeRooms`); in solo we scope to the
+   * player's current room so enemies off-screen aren't simulated. See AP-7.
+   */
+  private isRoomActive(roomIndex: number, player: { roomIndex: number } | null): boolean {
+    if (this.activeRooms !== null) return this.activeRooms.has(roomIndex);
+    if (!player) return true;
+    return roomIndex === player.roomIndex;
+  }
+
   evaluateVision(player: PlayerState | null): void {
     if (!player) return;
     const now = this.getNow();
@@ -600,6 +613,15 @@ class EnemyManager {
     for (const enemy of enemies) {
       // Skip dying enemies (in death animation) - they should not detect player
       if (EnemyDefinitions.isDying(enemy)) {
+        enemy.playerInVision = false;
+        enemy.alertStart = null;
+        enemy.alertUntil = null;
+        continue;
+      }
+
+      // Enemies outside the active room can't see the player — clear their vision
+      // cheaply without the distance/facing math. See AP-7.
+      if (!this.isRoomActive(enemy.roomIndex, player)) {
         enemy.playerInVision = false;
         enemy.alertStart = null;
         enemy.alertUntil = null;

@@ -1,5 +1,6 @@
 
 import { FirebaseShareTracker } from '../../runtime/infra/share/FirebaseShareTracker';
+import { ensureFirebase } from '../../runtime/infra/share/FirebaseLoader';
 import { ShareUtils } from '../../runtime/infra/share/ShareUtils';
 import { TextResources } from '../../runtime/adapters/TextResources';
 import type { EditorManager } from '../EditorManager';
@@ -60,7 +61,9 @@ class EditorShareService {
                 prompt(this.t('alerts.share.copyUrl'), url);
             }
 
-            void this.trackShareUrl(url);
+            // Firebase is loaded lazily here (off the boot path); the tracker
+            // re-initializes from the globals once they are populated.
+            void ensureFirebase().then(() => this.trackShareUrl(url));
         } catch (error) {
             console.error(error);
             alert(this.t('alerts.share.generateError'));

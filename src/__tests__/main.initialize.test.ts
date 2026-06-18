@@ -113,7 +113,7 @@ describe('TinyRPGApplication.initializeApplication / boot', () => {
     expect(mocks.EditorManagerCtor).not.toHaveBeenCalled();
   });
 
-  it('initializeApplication wires engine/api/services and resets game on non-initial tab activations', () => {
+  it('initializeApplication wires engine/api/services and resets game on non-initial tab activations', async () => {
     document.body.innerHTML = `<canvas id="game-canvas"></canvas>`;
 
     const loadSharedSpy = vi.spyOn(TinyRPGApplication, 'loadSharedGameIfAvailable').mockImplementation(() => {});
@@ -128,7 +128,9 @@ describe('TinyRPGApplication.initializeApplication / boot', () => {
     expect(setupTabsSpy).toHaveBeenCalledTimes(1);
     expect(mocks.GameEngineCtor).toHaveBeenCalledTimes(1);
     expect(loadSharedSpy).toHaveBeenCalledWith(mocks.engine);
-    expect(mocks.EditorManagerCtor).toHaveBeenCalledWith(mocks.engine);
+    // AP-8: the editor module is code-split and constructed lazily on first
+    // editor-tab activation, so it must NOT be built during boot.
+    expect(mocks.EditorManagerCtor).not.toHaveBeenCalled();
     expect(mocks.EditorExportServiceCtor).toHaveBeenCalledTimes(1);
     expect(bindResetSpy).toHaveBeenCalledWith(mocks.engine);
     expect(bindTouchSpy).toHaveBeenCalledWith(mocks.engine);
@@ -160,7 +162,6 @@ describe('TinyRPGApplication.initializeApplication / boot', () => {
     expect(mocks.engine.updateTile).toHaveBeenCalledWith('1', { a: 1 });
     expect(mocks.engine.setVariableDefault).toHaveBeenCalledWith('42', 'x');
     expect(mocks.engine.npcManager.resetNPCs).toHaveBeenCalled();
-    expect(mocks.editorManagerInstance.renderAll).toHaveBeenCalled();
 
     document.dispatchEvent(new CustomEvent('game-tab-activated', { detail: { initial: true } }));
     document.dispatchEvent(new CustomEvent('editor-tab-activated', { detail: { initial: true } }));
@@ -168,6 +169,13 @@ describe('TinyRPGApplication.initializeApplication / boot', () => {
     document.dispatchEvent(new CustomEvent('game-tab-activated', { detail: { initial: false } }));
     document.dispatchEvent(new CustomEvent('editor-tab-activated', { detail: { initial: false } }));
     expect(mocks.engine.resetGame.mock.calls.length).toBe(resetsAfterInitial + 2);
+
+    // AP-8: the editor is code-split; the non-initial editor activation above
+    // loads it and renders its panels once the dynamic import resolves.
+    await vi.waitFor(() => {
+      expect(mocks.EditorManagerCtor).toHaveBeenCalledWith(mocks.engine);
+      expect(mocks.editorManagerInstance.renderAll).toHaveBeenCalled();
+    });
   });
 
   it('initializeApplication skips EditorManager in export mode and api.renderAll is safe', () => {
