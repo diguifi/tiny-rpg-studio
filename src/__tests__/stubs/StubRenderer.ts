@@ -28,4 +28,6 @@ export class StubRenderer {
   setIntroData = vi.fn((data: unknown) => {
     this.introData = data
   })
+
+  destroy = vi.fn()
 }

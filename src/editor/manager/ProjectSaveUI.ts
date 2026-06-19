@@ -14,13 +14,10 @@ export class ProjectSaveUI {
   private historyMenu: HTMLElement | null = null;
   private historyContainer: HTMLElement | null = null;
   private historyWrapper: HTMLElement | null = null;
-  private tabEditor: HTMLElement | null = null;
   private boundOutsideClick = (ev: MouseEvent) => this.handleOutsideClick(ev);
   private boundStorage = (ev: StorageEvent) => this.handleStorageEvent(ev);
   private boundManualSave = () => void this.handleManualSave();
   private boundToggle = () => this.toggleHistoryMenu();
-  private boundUpdateVisibility = () => this.updateButtonVisibility();
-  private tabObserver: MutationObserver | null = null;
 
   constructor(saveManager: ProjectSaveManager, getShareUrl: ShareGetter, getProjectTitle: TitleGetter, onLoadProject?: OnLoadProject | null) {
     this.saveManager = saveManager;
@@ -38,7 +35,6 @@ export class ProjectSaveUI {
     this.historyMenu = document.getElementById('history-dropdown-menu') as HTMLElement | null;
     this.historyContainer = document.getElementById('history-items-container') as HTMLElement | null;
     this.historyWrapper = document.querySelector('.history-dropdown-wrapper') as HTMLElement | null;
-    this.tabEditor = document.getElementById('tab-editor') as HTMLElement | null;
 
     if (this.historyMenu) {
       this.historyMenu.setAttribute('role', 'menu');
@@ -55,16 +51,8 @@ export class ProjectSaveUI {
     if (this.historyToggleBtn) this.historyToggleBtn.addEventListener('click', this.boundToggle);
     document.addEventListener('click', this.boundOutsideClick);
     window.addEventListener('storage', this.boundStorage);
-    
-    // Listen for tab changes to show/hide save buttons
-    if (this.tabEditor) {
-      // Observe changes to the tab's active class
-      this.tabObserver = new MutationObserver(this.boundUpdateVisibility);
-      this.tabObserver.observe(this.tabEditor, { attributes: true, attributeFilter: ['class'] });
-    }
-    
-    // Initial visibility update
-    this.updateButtonVisibility();
+    // Save/Load button visibility is editor-only and handled entirely in CSS
+    // via body.editor-mode (see styles.css), so no JS toggling is needed here.
   }
 
   async handleManualSave(): Promise<void> {
@@ -182,19 +170,6 @@ export class ProjectSaveUI {
     void this.refreshHistoryUI();
   }
 
-  private updateButtonVisibility(): void {
-    // Check if the editor tab is active
-    const isEditorTabActive = this.tabEditor?.classList.contains('active') ?? false;
-    
-    // Show buttons only when editor tab is active
-    if (this.manualSaveBtn) {
-      this.manualSaveBtn.style.display = isEditorTabActive ? '' : 'none';
-    }
-    if (this.historyToggleBtn) {
-      this.historyToggleBtn.style.display = isEditorTabActive ? '' : 'none';
-    }
-  }
-
   private showNotification(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
     const toast = document.createElement('div');
     toast.className = `project-save-toast project-save-toast--${type}`;
@@ -208,13 +183,10 @@ export class ProjectSaveUI {
     if (this.historyToggleBtn) this.historyToggleBtn.removeEventListener('click', this.boundToggle);
     document.removeEventListener('click', this.boundOutsideClick);
     window.removeEventListener('storage', this.boundStorage);
-    if (this.tabObserver) this.tabObserver.disconnect();
     this.manualSaveBtn = null;
     this.historyToggleBtn = null;
     this.historyMenu = null;
     this.historyContainer = null;
     this.historyWrapper = null;
-    this.tabEditor = null;
-    this.tabObserver = null;
   }
 }

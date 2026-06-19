@@ -234,7 +234,10 @@ export class BitmapFont {
         if (this.tmp.width < w) this.tmp.width = Math.max(w, 256);
         if (this.tmp.height < h) this.tmp.height = h;
 
-        const tctx = this.tmp.getContext('2d');
+        // willReadFrequently: this scratch canvas is read back via getImageData
+        // on every rasterize (to binarize the alpha), so hint the browser to use
+        // a CPU-backed surface and avoid the "Multiple readback operations" warning.
+        const tctx = this.tmp.getContext('2d', { willReadFrequently: true });
         if (!tctx) return null;
         tctx.clearRect(0, 0, this.tmp.width, this.tmp.height);
         tctx.imageSmoothingEnabled = false;

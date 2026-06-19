@@ -741,10 +741,10 @@ export class GameEngine {
     this.isDestroyed = true;
     this.enemyManager.stop();
     this.backgroundMusicEngine.destroy();
-    if (this.renderer.tileAnimationTimer) {
-      clearInterval(this.renderer.tileAnimationTimer);
-      this.renderer.tileAnimationTimer = null;
-    }
+    // Releases the tile-animation interval AND every overlay rAF loop (intro
+    // pulse, pickup, level-up). Critical for the Explore preview thumbnails,
+    // which spin up and tear down an engine per game.
+    this.renderer.destroy();
   }
 
   tickEnemies(): void {

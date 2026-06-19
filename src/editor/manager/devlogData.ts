@@ -23,6 +23,41 @@ export type DevlogEntry = {
 
 export const DEVLOG_ENTRIES: DevlogEntry[] = [
   {
+    id: '2026-06-18-explore-browsing',
+    date: '2026-06-18',
+    title: 'Smoother community game browsing',
+    description:
+      'Opening "Explore" no longer slows the game down, and community games now load a handful at a time as you scroll instead of all at once. Browsing other creators\' worlds is fast and effortless.',
+  },
+  {
+    id: '2026-06-18-title-fit',
+    date: '2026-06-18',
+    title: 'Title screens that always fit',
+    description:
+      "Your game's title now resizes itself to fit the screen. Long, single-word titles shrink to stay readable instead of being awkwardly broken in the middle.",
+  },
+  {
+    id: '2026-06-18-faster-loading',
+    date: '2026-06-18',
+    title: 'Faster loading and smoother play',
+    description:
+      'We trimmed the startup and made the engine run lighter, so games open quicker and play more smoothly. We also fixed the game screen sometimes appearing at the wrong size right after the loading screen.',
+  },
+  {
+    id: '2026-06-17-new-font',
+    date: '2026-06-17',
+    title: 'A refreshed look',
+    description:
+      'Text across the engine now uses a new font, giving menus, dialog, and titles a cleaner, more polished feel.',
+  },
+  {
+    id: '2026-06-15-dpad-controls',
+    date: '2026-06-15',
+    title: 'On-screen D-pad controls',
+    description:
+      'A directional pad now appears below the game so you can play with touch on phones and tablets — no keyboard required.',
+  },
+  {
     id: '2026-06-15-creator-kit-1-4-0',
     date: '2026-06-15',
     title: 'Creator Kit 1.4.0',

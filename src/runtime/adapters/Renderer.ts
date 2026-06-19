@@ -440,6 +440,20 @@ class Renderer {
     }
 
 
+    /**
+     * Releases everything this renderer keeps running: the tile-animation
+     * interval and every overlay rAF loop. Must be called when the owning
+     * engine is destroyed, otherwise short-lived engines (Explore preview
+     * thumbnails) leave timers/animation frames running on a dead engine.
+     */
+    destroy() {
+        if (this.tileAnimationTimer) {
+            clearInterval(this.tileAnimationTimer);
+            this.tileAnimationTimer = null;
+        }
+        this.overlayRenderer.stopAnimationLoops();
+    }
+
     startTileAnimationLoop() {
         if (this.tileAnimationTimer) {
             clearInterval(this.tileAnimationTimer);

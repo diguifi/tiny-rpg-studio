@@ -79,7 +79,10 @@ class FirebaseShareTracker {
   initFromCompat(): boolean {
     const firebase = this.firebase;
     if (!firebase || !firebase.initializeApp) {
-      console.warn('[TinyRPG] Firebase SDK not available.');
+      // Firebase is optional: the share/explore consumers degrade to no-op when
+      // it is absent (the common local/dev case), so this is an expected state,
+      // not a problem. Log at debug level to keep the console clean.
+      console.debug('[TinyRPG] Firebase SDK not available.');
       return false;
     }
     let app: FirebaseCompatApp | null = null;

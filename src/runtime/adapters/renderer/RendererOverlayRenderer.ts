@@ -80,11 +80,14 @@ class RendererOverlayRenderer extends RendererModuleBase {
         const centerX = width / 2;
         const maxTextWidth = width * 0.9;
 
-        // Title: large (native 2x) and word-wrapped so it keeps side margins
-        // instead of running off both edges.
-        const titleSize = TITLE_FONT_SIZE;
+        // Title: word-wrapped to keep side margins instead of running off both
+        // edges. The size is chosen dynamically (native 2x when it fits,
+        // shrinking to 1x) so titles with a long unbreakable word are made
+        // smaller rather than split mid-word.
+        const maxTitleLines = 4;
+        const titleSize = this.chooseTitleFontSize(title, maxTextWidth, maxTitleLines);
         const titleLineHeight = Math.round((LINE_HEIGHT / FONT_SIZE) * titleSize);
-        const titleLines = this.wrapText(title, maxTextWidth, titleSize, 4);
+        const titleLines = this.wrapText(title, maxTextWidth, titleSize, maxTitleLines);
         const titleTop = height * 0.33 - ((titleLines.length - 1) * titleLineHeight) / 2;
         titleLines.forEach((line, i) => {
             bitmapFont.drawText(ctx, line, centerX, titleTop + i * titleLineHeight, titleSize, '#FFFFFF');
@@ -295,6 +298,52 @@ class RendererOverlayRenderer extends RendererModuleBase {
             }
         }
         return source.slice(0, lo) + ellipsis;
+    }
+
+    /**
+     * Picks the largest crisp font size at which the title wraps onto
+     * whole-word lines within the line budget. The pixel font is only crisp at
+     * multiples of FONT_SIZE, so the title can only be the native 2x
+     * (TITLE_FONT_SIZE) or 1x (FONT_SIZE). Multi-word titles that fit keep the
+     * large 2x size; a title whose single word is too wide at 2x (which would
+     * otherwise be split mid-word and become unreadable) is shrunk to 1x
+     * instead of being broken.
+     */
+    chooseTitleFontSize(title: string, maxWidth: number, maxLines: number): number {
+        const candidates = [TITLE_FONT_SIZE, FONT_SIZE];
+        for (const size of candidates) {
+            if (this.titleFitsWithoutBreakingWords(title, maxWidth, size, maxLines)) {
+                return size;
+            }
+        }
+        // Even at the smallest crisp size a word is too wide: fall back to it
+        // and let wrapText character-break/ellipsize as a last resort.
+        return FONT_SIZE;
+    }
+
+    /**
+     * True when the title fits within maxLines by breaking only at spaces
+     * (never mid-word) at the given size. Mirrors wrapText's whole-word
+     * joining, but reports failure instead of splitting an oversized word.
+     */
+    private titleFitsWithoutBreakingWords(title: string, maxWidth: number, size: number, maxLines: number): boolean {
+        const words = String(title || '').split(/\s+/).filter(Boolean);
+        if (words.length === 0) return true;
+        let line = '';
+        let lineCount = 0;
+        for (const word of words) {
+            // A single word wider than a line would force a mid-word break.
+            if (bitmapFont.measureText(word, size) > maxWidth) return false;
+            const candidate = line ? `${line} ${word}` : word;
+            if (bitmapFont.measureText(candidate, size) > maxWidth && line) {
+                lineCount += 1;
+                line = word;
+            } else {
+                line = candidate;
+            }
+        }
+        if (line) lineCount += 1;
+        return lineCount <= maxLines;
     }
 
     wrapText(text: string, maxWidth: number, charSize: number, maxLines: number): string[] {
@@ -583,6 +632,19 @@ class RendererOverlayRenderer extends RendererModuleBase {
         if (!this.introPulseHandle) return;
         this.cancelPickupFrame(this.introPulseHandle);
         this.introPulseHandle = 0;
+    }
+
+    /**
+     * Cancels every pending overlay animation frame (intro pulse, pickup and
+     * level-up loops). Called on engine teardown so short-lived engines — e.g.
+     * the Explore preview thumbnails, which create + destroy an engine per game
+     * — never leave a self-rescheduling rAF loop repainting a destroyed engine
+     * at 60fps forever (which otherwise piles up and lags the whole page).
+     */
+    stopAnimationLoops() {
+        this.stopIntroPulseLoop();
+        this.stopPickupAnimationLoop();
+        this.stopLevelUpAnimationLoop();
     }
 
     cancelPickupFrame(id: number) {

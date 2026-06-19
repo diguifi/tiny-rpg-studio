@@ -267,6 +267,19 @@ body.online-mode .project-save-controls {
     display: none;
 }
 
+/* Save/Load are editor-only controls: hidden until the editor tab is active.
+   Driven by body.editor-mode (toggled synchronously on boot/tab switch) so it
+   works even before the lazily code-split editor module has loaded. */
+.btn-manual-save,
+.history-dropdown-wrapper {
+    display: none;
+}
+
+body.editor-mode .btn-manual-save,
+body.editor-mode .history-dropdown-wrapper {
+    display: block;
+}
+
 .history-dropdown-wrapper {
     position: relative;
 }
@@ -593,44 +606,10 @@ body.editor-mode [class*='badge'] {
     background: var(--panel);
 }
 
-/* Desktop editor toolbar alignment (3-column layout, > 960px).
-   In editor mode the content spans the full window, but the top toolbar would
-   otherwise stay capped at 720px and centered, leaving it floating in the
-   middle and visibly misaligned with the columns below. Stretch both toolbar
-   rows to the same horizontal inset as .editor-layout so their edges line up
-   with the editor content, and left-align their contents into a proper bar.
-   Scoped to desktop so the single-column tablet/mobile editor keeps its own
-   tuned layout. */
-@media (min-width: 961px) {
-    body.editor-mode .tabs,
-    body.editor-mode .project-save-controls {
-        width: auto;
-        max-width: none;
-        margin-left: clamp(10px, 2.5vw, 20px);
-        margin-right: clamp(10px, 2.5vw, 20px);
-    }
-
-    body.editor-mode .tabs {
-        align-items: center;
-        gap: 8px;
-    }
-
-    body.editor-mode .tabs-title {
-        flex: 0 0 auto;
-        width: auto;
-        text-align: left;
-    }
-
-    body.editor-mode .tabs-links {
-        flex: 1 1 auto;
-        width: auto;
-        justify-content: flex-start;
-    }
-
-    body.editor-mode .project-save-controls {
-        justify-content: flex-start;
-    }
-}
+/* The top toolbar (tabs + save/load controls) keeps the same centered,
+   max-width layout in both game and editor modes for visual consistency, so it
+   inherits the base .tabs / .tabs-links / .project-save-controls rules without
+   an editor-specific alignment override. */
 
 body.editor-mode .tile-card.selected,
 body.editor-mode .npc-card.selected,
@@ -4789,6 +4768,10 @@ body.game-mode .tab-button.active {
     margin-top: 16px;
     display: flex;
     justify-content: center;
+}
+
+.explore-footer[hidden] {
+    display: none;
 }
 
 .explore-load-more {

@@ -125,6 +125,13 @@ class ExploreModal {
   private previewQueue: PreviewJob[] = [];
   private previewRunning = false;
 
+  private games: GameEntry[] = [];
+  private renderedCount = 0;
+  private body: HTMLElement | null;
+  private footer: HTMLElement | null = null;
+  private pageObserver: IntersectionObserver | null = null;
+  private static readonly PAGE_SIZE = 6;
+
   constructor() {
     this.modal = document.getElementById('explore-modal');
     this.grid = document.getElementById('explore-grid');
@@ -132,6 +139,7 @@ class ExploreModal {
     this.emptyEl = document.getElementById('explore-empty');
     this.backBanner = document.getElementById('explore-back-banner');
     this.subtitleEl = document.getElementById('explore-subtitle');
+    this.body = this.modal?.querySelector<HTMLElement>('.explore-modal__body') ?? null;
     this.bind();
   }
 
@@ -178,6 +186,8 @@ class ExploreModal {
 
     if (this.loadingEl) this.loadingEl.hidden = true;
     this.loaded = true;
+    this.games = games;
+    this.renderedCount = 0;
 
     if (this.subtitleEl && games.length > 0) {
       this.subtitleEl.textContent = TextResources.format('explore.subtitle', { count: games.length });
@@ -188,11 +198,69 @@ class ExploreModal {
       return;
     }
 
-    for (const game of games) {
-      this.grid?.appendChild(this.renderCard(game));
-    }
+    this.ensureLoadMoreFooter();
+    this.renderNextPage();
+  }
 
+  /**
+   * Renders the next page of cards and queues their previews. Previews are
+   * only generated for cards actually added to the grid, so opening the modal
+   * no longer builds every game's preview engine up front (which is what made
+   * the engine lag).
+   */
+  private renderNextPage(): void {
+    const start = this.renderedCount;
+    const end = Math.min(start + ExploreModal.PAGE_SIZE, this.games.length);
+    for (let i = start; i < end; i++) {
+      this.grid?.appendChild(this.renderCard(this.games[i]));
+    }
+    this.renderedCount = end;
+    this.updateLoadMoreFooter();
     this.drainPreviewQueue();
+  }
+
+  /**
+   * Lazily builds the "load more" footer (button + auto-load observer) once,
+   * appended after the grid inside the scrolling modal body.
+   */
+  private ensureLoadMoreFooter(): void {
+    if (this.footer || !this.body) return;
+
+    const footer = document.createElement('div');
+    footer.className = 'explore-footer';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'explore-load-more';
+    btn.textContent = TextResources.get('explore.loadMore', 'Carregar mais');
+    btn.addEventListener('click', () => this.renderNextPage());
+    footer.appendChild(btn);
+
+    this.body.appendChild(footer);
+    this.footer = footer;
+
+    // Auto-load the next page as the footer scrolls near the viewport, while
+    // keeping the button as an explicit fallback. rootMargin gives a small
+    // prefetch so scrolling stays seamless.
+    if (typeof IntersectionObserver === 'function') {
+      this.pageObserver = new IntersectionObserver((entries) => {
+        if (entries.some(e => e.isIntersecting)) this.renderNextPage();
+      }, { root: this.body, rootMargin: '120px' });
+      this.pageObserver.observe(footer);
+    }
+  }
+
+  /**
+   * Shows the footer while more pages remain; hides it and stops observing
+   * once every game has been rendered.
+   */
+  private updateLoadMoreFooter(): void {
+    const hasMore = this.renderedCount < this.games.length;
+    if (this.footer) this.footer.hidden = !hasMore;
+    if (!hasMore && this.pageObserver) {
+      this.pageObserver.disconnect();
+      this.pageObserver = null;
+    }
   }
 
   private renderCard(game: GameEntry): HTMLElement {

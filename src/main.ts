@@ -55,7 +55,11 @@ class TinyRPGApplication {
     const onGesture = () => playWelcome();
     events.forEach((e) => globalThis.addEventListener(e, onGesture, { passive: true }));
     document.addEventListener('boot-finished', () => {
-      soundEngine.unlock();
+      // Do not unlock here: creating/resuming the AudioContext before the first
+      // user gesture triggers Chrome's "AudioContext was not allowed to start"
+      // warning (and can't actually start audio anyway). The first-gesture
+      // handler above unlocks audio properly. If the user already interacted
+      // (context running), play the welcome jingle now.
       if (soundEngine.isRunning()) playWelcome();
     });
   }
