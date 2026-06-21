@@ -23,6 +23,20 @@ export type DevlogEntry = {
 
 export const DEVLOG_ENTRIES: DevlogEntry[] = [
   {
+    id: '2026-06-21-choice-dialogs',
+    date: '2026-06-21',
+    title: 'Branching Yes/No dialogs',
+    description:
+      'NPCs can now ask the player a question with two answers. Picking Yes or No shows its own message and can switch a variable on, so a single choice can change how the rest of your game unfolds. The decision is final for the whole playthrough — only restarting the game from scratch resets it — which rewards replaying to discover the other path.',
+  },
+  {
+    id: '2026-06-21-crisper-dialogs',
+    date: '2026-06-21',
+    title: 'Crisper, easier-to-read dialogs',
+    description:
+      'Dialog boxes are now sharp at every screen size and keep a steady, comfortable size. Longer messages reveal with a typewriter effect and turn to the next page as you continue, and Yes/No questions appear as two big buttons that are easy to tap on phones.',
+  },
+  {
     id: '2026-06-18-explore-browsing',
     date: '2026-06-18',
     title: 'Smoother community game browsing',
