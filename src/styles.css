@@ -864,6 +864,89 @@ body.editor-mode .editor-mobile-nav-button:focus-visible {
     touch-action: manipulation;
 }
 
+/* ── Level-up skill selection (HTML overlay, same approach as the dialog) ── */
+.game-levelup-overlay {
+    position: absolute;
+    box-sizing: border-box;
+    /* Capture taps so they never fall through to the canvas pointer handler. */
+    pointer-events: auto;
+    z-index: 30;
+}
+
+.game-levelup {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    gap: 1em;
+    padding: 1em 0.8em;
+    /* Solid so the gameplay canvas behind never bleeds through the modal. */
+    background: #0a0c14;
+    overflow-y: auto;
+}
+
+.game-levelup-title {
+    color: var(--levelup-accent, #FFF1E8);
+    font-size: 1.2em;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
+.game-levelup-pending {
+    color: var(--levelup-accent-strong, #FFD700);
+    font-size: 0.8em;
+    text-align: center;
+}
+
+.game-levelup-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7em;
+    width: 100%;
+    max-width: 92%;
+}
+
+.game-levelup-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45em;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.7em 0.8em;
+    font: inherit;
+    text-align: left;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+    border: 0.16em solid var(--levelup-accent, #C2C3C7);
+    border-radius: 0.25em;
+    cursor: pointer;
+    pointer-events: auto;
+    touch-action: manipulation;
+}
+
+.game-levelup-card--selected {
+    background: rgba(100, 181, 246, 0.18);
+    border-color: var(--levelup-accent-strong, #64b5f6);
+}
+
+.game-levelup-card-name {
+    font-size: 1em;
+    line-height: 1.1;
+    color: #fff;
+}
+
+.game-levelup-card-desc {
+    font-size: 0.78em;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.82);
+}
+
 #editor-canvas {
     width: clamp(220px, 90vw, 820px);
     max-width: 100%;

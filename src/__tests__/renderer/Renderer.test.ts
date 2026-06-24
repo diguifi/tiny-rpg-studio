@@ -74,6 +74,14 @@ vi.mock('../../runtime/adapters/renderer/RendererDialogRenderer', () => ({
   },
 }));
 
+vi.mock('../../runtime/adapters/renderer/RendererLevelUpOverlay', () => ({
+  RendererLevelUpOverlay: class {
+    setChoiceHandler() {}
+    setBottomReserve() {}
+    draw() {}
+  },
+}));
+
 vi.mock('../../runtime/adapters/renderer/RendererHudRenderer', () => ({
   RendererHudRenderer: class {
     drawHUD() {}

@@ -4,6 +4,7 @@ import { RendererCanvasHelper } from './renderer/RendererCanvasHelper';
 import { RendererTileRenderer } from './renderer/RendererTileRenderer';
 import { RendererEntityRenderer } from './renderer/RendererEntityRenderer';
 import { RendererDialogRenderer } from './renderer/RendererDialogRenderer';
+import { RendererLevelUpOverlay } from './renderer/RendererLevelUpOverlay';
 import { RendererHudRenderer } from './renderer/RendererHudRenderer';
 import { RendererEffectsManager } from './renderer/RendererEffectsManager';
 import { RendererTransitionManager } from './renderer/RendererTransitionManager';
@@ -65,6 +66,7 @@ class Renderer {
     tileRenderer!: RendererTileRenderer;
     entityRenderer!: RendererEntityRenderer;
     dialogRenderer!: RendererDialogRenderer;
+    levelUpOverlay!: RendererLevelUpOverlay;
     hudRenderer!: RendererHudRenderer;
     effectsManager!: RendererEffectsManager;
     transitionManager!: RendererTransitionManager;
@@ -107,6 +109,7 @@ class Renderer {
         this.entityRenderer = new RendererEntityRenderer(gameState as never, tileManager as never, this.spriteFactory as never, this.canvasHelper as never, this.paletteManager);
         this.entityRenderer.setViewportOffset(this.gameplayOffsetY);
         this.dialogRenderer = new RendererDialogRenderer(gameState as never, this.paletteManager, () => this.draw());
+        this.levelUpOverlay = new RendererLevelUpOverlay(gameState as never, this.paletteManager);
         this.hudRenderer = new RendererHudRenderer(gameState as never, this.entityRenderer as never, this.paletteManager);
         this.effectsManager = new RendererEffectsManager(this as never);
         this.transitionManager = new RendererTransitionManager(this as never);
@@ -340,16 +343,19 @@ class Renderer {
             this.hudRenderer.drawInventory(ctx, bottomHudArea);
         }
 
+        // During the level-up modal the top HUD is hidden behind the overlay, but
+        // the inventory bar stays visible below it.
+        if (levelUpOverlayActive && !this.shouldHideHud()) {
+            this.hudRenderer.drawInventory(ctx, bottomHudArea);
+        }
+        // The level-up skill screen is an HTML overlay (crisp web font) rather than
+        // canvas pixel text. Drawn every frame so it shows/hides with the state.
+        this.levelUpOverlay.setBottomReserve(this.shouldHideHud() ? 0 : this.inventoryBarHeight);
+        this.levelUpOverlay.draw(ctx);
+
         if (this.gameState.isGameOver()) {
             this.overlayRenderer.drawGameOverScreen();
             return;
-        }
-
-        if (levelUpOverlayActive) {
-            this.overlayRenderer.drawLevelUpOverlayFull(ctx);
-            if (!this.shouldHideHud()) {
-                this.hudRenderer.drawInventory(ctx, bottomHudArea);
-            }
         }
     }
 

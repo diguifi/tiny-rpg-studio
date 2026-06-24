@@ -25,6 +25,11 @@ export class StubRenderer {
     pickChoiceFromPointer: vi.fn(() => null)
   }
 
+  levelUpOverlay = {
+    setChoiceHandler: vi.fn(),
+    draw: vi.fn()
+  }
+
   constructor(
     _canvas: HTMLCanvasElement,
     _state: StubGameState,

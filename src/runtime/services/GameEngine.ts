@@ -90,6 +90,10 @@ export class GameEngine {
       this.dialogManager.confirmChoiceSelection();
       this.renderer.draw();
     });
+    // Tapping/clicking a skill card on the HTML level-up overlay picks it.
+    this.renderer.levelUpOverlay.setChoiceHandler((index: number) => {
+      this.chooseLevelUpSkill(index);
+    });
     this.dialogManager = new DialogManager(this.gameState as never, this.renderer);
     this.interactionManager = new InteractionManager(this.gameState as never, this.dialogManager, {
       onPlayerVictory: () => this.handleGameCompletion(),
