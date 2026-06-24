@@ -92,7 +92,12 @@ class StateDataManager {
             start: this.game.start,
             sprites: this.game.sprites,
             enemies: this.game.enemies,
-            items: this.game.items,
+            // `collected` is run-time pickup state stored on the item; reset it in
+            // the exported definition so play progress never leaks into the saved
+            // or shared game.
+            items: Array.isArray(this.game.items)
+                ? this.game.items.map((item) => ({ ...item, collected: false }))
+                : this.game.items,
             objects: this.game.objects,
             variables: this.game.variables,
             exits: this.game.exits,

@@ -806,8 +806,18 @@ class GameState {
         return this.enemyManager.setEnemyVariable(normalizedEnemyId, normalized);
     }
 
-    damagePlayer(amount = 1) {
-        return this.playerManager.damage(amount);
+    damagePlayer(amount = 1, options: { autoGameOver?: boolean } = {}) {
+        const lives = this.playerManager.damage(amount);
+        // Reaching 0 lives (with no revive) is a defeat. By default we mark
+        // game-over here so paths that bypass combat — e.g. the online
+        // 'player-took-damage' handler — still trigger defeat instead of leaving
+        // the player as an "immortal ghost" at 0 HP. Combat opts out
+        // (autoGameOver: false) because it plays its own death sequence first.
+        const autoGameOver = options.autoGameOver !== false;
+        if (autoGameOver && lives <= 0 && !this.isGameOver()) {
+            this.setGameOver(true, 'defeat');
+        }
+        return lives;
     }
 
     isPlayerOnDamageCooldown() {

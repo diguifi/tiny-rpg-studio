@@ -101,19 +101,16 @@ export class OnlineStateBroadcaster {
         }
 
         const currentVars = this.extractVariables();
-        const changedVars: Record<number, number> = {};
         let hasVarChanges = false;
         for (const [idx, val] of Object.entries(currentVars)) {
             const i = Number(idx);
             if (this.lastVariables[i] !== val) {
-                changedVars[i] = val;
                 this.lastVariables[i] = val;
                 hasVarChanges = true;
             }
         }
 
         const currentObjs = this.extractObjects();
-        const changedObjs: Record<string, ObjectNetState> = {};
         let hasObjChanges = false;
         for (const [id, state] of Object.entries(currentObjs)) {
             const prev = this.lastObjects[id];
@@ -125,18 +122,15 @@ export class OnlineStateBroadcaster {
                 prev.x !== state.x ||
                 prev.y !== state.y
             ) {
-                changedObjs[id] = state;
                 this.lastObjects[id] = { ...state };
                 hasObjChanges = true;
             }
         }
 
         const currentItems = this.extractItems();
-        const changedItems: Record<string, boolean> = {};
         let hasItemChanges = false;
         for (const [id, collected] of Object.entries(currentItems)) {
             if (this.lastItems[id] !== collected) {
-                changedItems[id] = collected;
                 this.lastItems[id] = collected;
                 hasItemChanges = true;
             }
@@ -146,9 +140,14 @@ export class OnlineStateBroadcaster {
 
         const diff: WorldStateDiff = { tick: ++this.tick };
         if (hasEnemyChanges) diff.enemies = changedEnemies;
-        if (hasVarChanges) diff.variables = changedVars;
-        if (hasObjChanges) diff.objects = changedObjs;
-        if (hasItemChanges) diff.items = changedItems;
+        // Variables/objects/items are a small, bounded set of booleans. When any
+        // changed, send the FULL current state of that category (not just the
+        // changed entries) so a dropped diff self-heals on the next one. A
+        // delta-only encoding would lose a one-shot change forever if its packet
+        // were dropped. Enemy positions stay delta (frequent and larger).
+        if (hasVarChanges) diff.variables = currentVars;
+        if (hasObjChanges) diff.objects = currentObjs;
+        if (hasItemChanges) diff.items = currentItems;
 
         this.client.send({ type: 'world-state-diff', diff });
     }

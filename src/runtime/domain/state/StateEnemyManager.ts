@@ -91,6 +91,7 @@ class StateEnemyManager {
             x: this.worldManager.clampCoordinate(enemy.x),
             y: this.worldManager.clampCoordinate(enemy.y),
             lastX: this.worldManager.clampCoordinate(enemy.x),
+            ...(typeof enemy.lives === 'number' ? { lives: enemy.lives } : {}),
             defeatVariableId: this.normalizeEnemyVariableId(enemy.defeatVariableId)
         };
         const runtimeEntry = {

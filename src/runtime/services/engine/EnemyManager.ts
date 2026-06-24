@@ -222,7 +222,12 @@ class EnemyManager {
           this.windupTimers.delete(timer);
           this.windupTimersByEnemy.get(enemy.id)?.delete(timer);
           if (EnemyDefinitions.isDying(enemy)) return;
-          this.handleEnemyCollision(enemyIndex, { initiator: 'enemy' });
+          // Resolve the originally-captured enemy by identity: the shared array
+          // may have shifted (an earlier enemy removed) during the wind-up, which
+          // would leave the captured numeric index pointing at the wrong enemy.
+          const currentIndex = this.gameState.getEnemies().indexOf(enemy);
+          if (currentIndex < 0) return;
+          this.handleEnemyCollision(currentIndex, { initiator: 'enemy' });
         }, GameConfig.combat.lungeAnimationDuration);
         this.trackWindupTimer(enemy.id, timer);
       } else {
@@ -580,10 +585,15 @@ class EnemyManager {
     const absDeltaX = Math.abs(deltaX);
     const absDeltaY = Math.abs(deltaY);
 
-    // Special case: if both deltas are 0 (stopped) and lastY exists, prefer vertical
+    // Stopped after having a vertical history (moved, then stopped): face down.
     if (absDeltaX === 0 && absDeltaY === 0 && typeof enemy.lastY === 'number') {
-      // Stopped with vertical tracking - face down by default
       return player.y >= enemy.y;
+    }
+    // Stopped with NO vertical history (a freshly-spawned, never-moved enemy):
+    // keep the default right-facing AND, like any stopped enemy, also notice
+    // anything strictly below it. Still blind up-and-to-the-left, so not 360°.
+    if (absDeltaX === 0 && absDeltaY === 0) {
+      return player.x >= enemy.x || player.y > enemy.y;
     }
 
     // If enemy is moving or has moved primarily horizontally

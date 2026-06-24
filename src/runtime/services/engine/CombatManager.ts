@@ -310,8 +310,10 @@ class CombatManager {
         playerLives = this.gameState.getLives();
         this.renderer.draw();
       } else {
-        // Enemy hits player
-        playerLives = this.applyDamageToPlayer(damage, enemy, entityRenderer, cameraShake);
+        // Enemy hits player. Don't finish combat on survive — the player's
+        // counter-attack below runs next and finishes combat afterwards, so
+        // isInCombat() must remain true through it.
+        playerLives = this.applyDamageToPlayer(damage, enemy, entityRenderer, cameraShake, false);
       }
 
       if (playerLives <= 0) {
@@ -364,10 +366,13 @@ class CombatManager {
     damage: number,
     enemy: EnemyState,
     entityRenderer: EntityRendererApi,
-    cameraShake: CameraShakeApi
+    cameraShake: CameraShakeApi,
+    finishCombatOnSurvive = true
   ): number {
     soundEngine.play('playerHit');
-    const playerLives = this.gameState.damagePlayer(damage);
+    // Combat plays its own death sequence before the game-over screen, so opt
+    // out of the auto game-over that damagePlayer applies for non-combat paths.
+    const playerLives = this.gameState.damagePlayer(damage, { autoGameOver: false });
     const reduction = this.gameState.consumeLastDamageReduction();
 
     entityRenderer.flashEntity('player', '#FF004D', GameConfig.combat.entityFlashDuration);
@@ -387,9 +392,11 @@ class CombatManager {
       this.gameState.setLastKillerEnemy?.(enemy.id || null);
       this.finishCombat();
       this.playPlayerDeathSequence(enemy.type);
-    } else {
+    } else if (finishCombatOnSurvive) {
       this.finishCombat();
     }
+    // Otherwise the caller (enemy-initiated combat) owns finishing combat after
+    // the player's counter-attack, so isInCombat() stays true through it.
 
     return playerLives;
   }
@@ -462,7 +469,8 @@ class CombatManager {
     if (attackMissed) {
       this.showMissFeedback();
     } else {
-      playerLives = this.gameState.damagePlayer(damage);
+      // Combat runs its own death sequence; opt out of auto game-over.
+      playerLives = this.gameState.damagePlayer(damage, { autoGameOver: false });
       const reduction = this.gameState.consumeLastDamageReduction();
 
       if (reduction > 0) {

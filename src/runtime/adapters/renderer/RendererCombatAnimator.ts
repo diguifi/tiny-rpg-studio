@@ -37,11 +37,13 @@ type GameStateApi = {
 class RendererCombatAnimator extends RendererModuleBase {
     animation: AnimationState;
     hitstopTimer: ReturnType<typeof setTimeout> | null;
+    lungeTimer: ReturnType<typeof setTimeout> | null;
 
     constructor(renderer: ConstructorParameters<typeof RendererModuleBase>[0]) {
         super(renderer);
         this.animation = { active: false };
         this.hitstopTimer = null;
+        this.lungeTimer = null;
     }
 
     get combatGameState(): GameStateApi {
@@ -84,9 +86,15 @@ class RendererCombatAnimator extends RendererModuleBase {
         const rendererWithTelegraph = this.renderer as { attackTelegraph?: { activateTelegraph: (id: string, dir: Position) => void } };
         rendererWithTelegraph.attackTelegraph?.activateTelegraph('player', directionToTarget);
 
-        // Wait for wind-up animation to complete, then execute callback
+        // Wait for wind-up animation to complete, then execute callback. The
+        // timer handle is stored so cancel() can clear it — otherwise the lunge
+        // would still fire onComplete after combat was cancelled.
         const duration = GameConfig.combat.lungeAnimationDuration; // 300ms
-        setTimeout(() => {
+        if (this.lungeTimer) {
+            clearTimeout(this.lungeTimer);
+        }
+        this.lungeTimer = setTimeout(() => {
+            this.lungeTimer = null;
             onComplete?.();
         }, duration);
     }
@@ -195,6 +203,13 @@ class RendererCombatAnimator extends RendererModuleBase {
     cancel(): void {
         if (this.animation.rafId) {
             globalThis.cancelAnimationFrame(this.animation.rafId);
+        }
+
+        // Clear the pending lunge wind-up timer so its onComplete never fires
+        // after combat is cancelled.
+        if (this.lungeTimer) {
+            clearTimeout(this.lungeTimer);
+            this.lungeTimer = null;
         }
 
         const wasActive = this.animation.active;

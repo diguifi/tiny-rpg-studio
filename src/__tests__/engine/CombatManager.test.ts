@@ -470,7 +470,7 @@ describe('CombatManager', () => {
 
       manager.handleEnemyCollision(0);
 
-      expect(gameState.damagePlayer).toHaveBeenCalledWith(1);
+      expect(gameState.damagePlayer).toHaveBeenCalledWith(1, { autoGameOver: false });
       expect(renderer.spawnEnemyLifeLoss).toHaveBeenCalledWith(1, 1, 2); // Enemy loses 1 life
     });
 
@@ -561,7 +561,7 @@ describe('CombatManager', () => {
       manager.handleEnemyCollision(0, { initiator: 'player' });
 
       expect(renderer.combatAnimator.startKnockback).toHaveBeenCalled();
-      expect(gameState.damagePlayer).toHaveBeenCalledWith(1);
+      expect(gameState.damagePlayer).toHaveBeenCalledWith(1, { autoGameOver: false });
     });
 
     it('enemy misses counter-attack in animated combat', () => {
@@ -596,7 +596,7 @@ describe('CombatManager', () => {
       manager.handleEnemyCollision(0, { initiator: 'enemy' });
 
       expect(renderer.combatAnimator.startKnockback).toHaveBeenCalled();
-      expect(gameState.damagePlayer).toHaveBeenCalledWith(1);
+      expect(gameState.damagePlayer).toHaveBeenCalledWith(1, { autoGameOver: false });
       expect(renderer.combatAnimator.startLungeAttack).toHaveBeenCalled();
     });
 

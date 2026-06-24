@@ -520,6 +520,9 @@ class MovementManager {
       const tile = this.tileManager.getTile(candidateId);
       if (tile?.collision && !this.canTraverseCollisionTile(tile)) return false;
     }
+    // A box must not be pushed onto a tile occupied by an enemy or an NPC.
+    if (this.enemyManager.collideAt(roomIndex, x, y)) return false;
+    if (this.findNpcAt(roomIndex, x, y)) return false;
     return true;
   }
 

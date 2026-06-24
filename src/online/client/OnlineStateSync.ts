@@ -23,6 +23,12 @@ export class OnlineStateSync {
     // changes that are newer than the snapshot's capture time.
     private _snapshotApplied = false;
     private pendingDiffs: WorldStateDiff[] = [];
+    /**
+     * The `tick` of the most recently applied diff. Lets a coordinator compare
+     * against the broadcaster's monotonic tick and notice a dropped diff (a gap
+     * in the sequence) so it can request a resync.
+     */
+    lastAppliedTick: number | undefined = undefined;
 
     get snapshotApplied(): boolean { return this._snapshotApplied; }
 
@@ -91,6 +97,9 @@ export class OnlineStateSync {
     }
 
     private applyDiffFields(diff: WorldStateDiff): void {
+        if (typeof diff.tick === 'number') {
+            this.lastAppliedTick = diff.tick;
+        }
         if (diff.enemies) this.applyEnemyDiff(diff.enemies);
         if (diff.variables) this.applyVariableDiff(diff.variables);
         if (diff.objects) this.applyObjectDiff(diff.objects);
