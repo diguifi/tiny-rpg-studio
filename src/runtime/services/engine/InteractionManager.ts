@@ -101,7 +101,7 @@ type GameStateApi = {
   addExperience?: (amount: number) => void;
   getSwordType?: () => string | null;
   addDamageShield?: (durability: number, type: string) => void;
-  damagePlayer?: (amount: number) => number;
+  damagePlayer?: (amount: number, options?: { autoGameOver?: boolean }) => number;
   setArmorEquipped?: () => void;
   setBootsEquipped?: () => void;
   hasBoots?: () => boolean;
@@ -391,7 +391,9 @@ class InteractionManager {
     const isActive = variableId ? !(this.gameState.isVariableOn?.(variableId) ?? false) : true;
     if (!isActive) return true;
     if (this.gameState.hasBoots?.()) return true;
-    const remainingLives = this.gameState.damagePlayer?.(1) ?? 1;
+    // Opt out of the auto game-over: onTrapKill runs its own death sequence
+    // (grayscale + message) before the game-over screen, just like combat.
+    const remainingLives = this.gameState.damagePlayer?.(1, { autoGameOver: false }) ?? 1;
     soundEngine.play('playerHit');
     if (remainingLives <= 0) {
       this.options?.onTrapKill?.();

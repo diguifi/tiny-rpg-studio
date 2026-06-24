@@ -307,7 +307,7 @@ describe('InteractionManager', () => {
 
     const handled = manager.handleTrap(trap as never);
     expect(handled).toBe(true);
-    expect(gameState.damagePlayer).toHaveBeenCalledWith(1);
+    expect(gameState.damagePlayer).toHaveBeenCalledWith(1, { autoGameOver: false });
   });
 
   it('trap does not damage player when boots are equipped', () => {
@@ -350,7 +350,7 @@ describe('InteractionManager', () => {
 
     manager.handleTrap(trap as never);
 
-    expect(gameState.damagePlayer).toHaveBeenCalledWith(1);
+    expect(gameState.damagePlayer).toHaveBeenCalledWith(1, { autoGameOver: false });
   });
 
   // --- Chest ---
