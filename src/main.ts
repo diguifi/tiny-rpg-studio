@@ -16,6 +16,7 @@ import { normalizeBackgroundMusicVolume } from './runtime/infra/share/Background
 import { PerformanceProfiler, performanceProfiler } from './runtime/debug/PerformanceProfiler';
 import { loadAnalyticsWhenIdle } from './analytics/loadAnalytics';
 import { track } from './analytics/track';
+import { installPwaUpdateChecks } from './pwa/installPwaUpdateChecks';
 
 const getTextResource = (key: string, fallback = ''): string => {
   const value = TextResources.get(key, fallback) as string;
@@ -158,6 +159,12 @@ class TinyRPGApplication {
     this.bindFullscreenButton();
     this.bindBackgroundMusicVolumeControl(gameEngine);
     this.bindLanguageSelector();
+    installPwaUpdateChecks({
+      dirtyState: {
+        hasUnsavedChanges: () => editorManager?.hasUnsavedChangesForUpdate() ?? false,
+        saveBeforeUpdate: () => editorManager?.saveBeforePwaUpdate() ?? true,
+      },
+    });
 
     console.log(getTextResource('log.engineReady'));
   }

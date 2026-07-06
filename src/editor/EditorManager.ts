@@ -474,6 +474,30 @@ class EditorManager {
         this.shareService.saveGame();
     }
 
+    hasUnsavedChangesForUpdate(): boolean {
+        try {
+            const currentSnapshot = JSON.stringify(this.gameEngine.exportGameData());
+            return this.history.stack[this.history.index] !== currentSnapshot;
+        } catch {
+            return true;
+        }
+    }
+
+    saveBeforePwaUpdate(): boolean {
+        try {
+            const gameData = this.gameEngine.exportGameData();
+            const shareUrl = ShareUtils.buildShareUrl(gameData as Record<string, unknown> | null | undefined);
+            if (!shareUrl || !this.projectSaveManager) return false;
+            const title = this.dom.titleInput?.value ?? '';
+            const result = this.projectSaveManager.manualSave(shareUrl, title);
+            if (!result.ok) return false;
+            this.history.pushCurrentState();
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     loadGameFile(ev: Event) {
         this.shareService.loadGameFile(ev);
     }

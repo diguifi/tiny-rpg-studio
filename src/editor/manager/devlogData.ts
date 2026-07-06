@@ -23,6 +23,13 @@ export type DevlogEntry = {
 
 export const DEVLOG_ENTRIES: DevlogEntry[] = [
   {
+    id: '2026-07-05-pwa-auto-updates',
+    date: '2026-07-05',
+    title: 'Installed apps stay up to date',
+    description:
+      'Tiny RPG Studio now checks for a fresh version when it opens, comes back online, or returns to the foreground. Installed app and browser users can move to the newest build more reliably, while the editor protects unsaved work before any forced refresh.',
+  },
+  {
     id: '2026-06-21-choice-dialogs',
     date: '2026-06-21',
     title: 'Branching Yes/No dialogs',
