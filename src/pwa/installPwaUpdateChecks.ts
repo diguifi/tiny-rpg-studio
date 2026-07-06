@@ -1,12 +1,10 @@
 import { AppUpdateManager, type DirtyStateGuard } from './AppUpdateManager';
 import { CURRENT_APP_VERSION } from './AppVersion';
-import type { RegisterSWOptions } from 'virtual:pwa-register';
 
 export interface InstallPwaUpdateChecksOptions {
   dirtyState?: DirtyStateGuard;
 }
 
-let serviceWorkerRegistration: ServiceWorkerRegistration | undefined;
 let installed = false;
 
 type NavigatorWithOptionalServiceWorker = Navigator & {
@@ -17,21 +15,10 @@ export function installPwaUpdateChecks(options: InstallPwaUpdateChecksOptions = 
   if (installed || typeof window === 'undefined') return;
   installed = true;
 
-  void import('virtual:pwa-register')
-    .then((module: { registerSW(options?: RegisterSWOptions): () => Promise<void> }) => {
-      module.registerSW({
-        immediate: true,
-        onRegisteredSW(_swUrl, registration) {
-          serviceWorkerRegistration = registration;
-        },
-      });
-    })
-    .catch(() => undefined);
-
   const manager = new AppUpdateManager({
     appBaseUrl: new URL(getBaseUrl(), window.location.href),
     currentVersion: CURRENT_APP_VERSION,
-    getServiceWorkerRegistration: async () => serviceWorkerRegistration ?? getServiceWorkerContainer()?.ready,
+    getServiceWorkerRegistration: async () => getServiceWorkerContainer()?.ready,
     dirtyState: options.dirtyState,
   });
 
