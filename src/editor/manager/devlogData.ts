@@ -23,6 +23,13 @@ export type DevlogEntry = {
 
 export const DEVLOG_ENTRIES: DevlogEntry[] = [
   {
+    id: '2026-07-12-sword-durability-hud',
+    date: '2026-07-12',
+    title: 'See sword durability on the HUD',
+    description:
+      'When you equip a sword, small squares now appear above its icon in the inventory bar. Each square is one remaining hit — the same style as enemy lives — so you can tell at a glance how many swings you have left before the blade breaks.',
+  },
+  {
     id: '2026-07-11-custom-sprites-pack',
     date: '2026-07-11',
     title: 'Share custom pixel art as a pack',
