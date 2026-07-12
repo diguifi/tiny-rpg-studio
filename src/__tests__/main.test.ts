@@ -406,11 +406,26 @@ describe('TinyRPGApplication.bindTouchPad', () => {
     expect(() => TinyRPGApplication.bindTouchPad(asTouchPadGameEngine(engine))).not.toThrow();
   });
 
-  it('moves player on touchstart using direction map', () => {
+  it('moves player on pointerdown using direction map', () => {
     TinyRPGApplication.bindTouchPad(asTouchPadGameEngine(engine));
     const leftButton = document.querySelector<HTMLButtonElement>('.pad-button[data-direction="left"]');
-    leftButton?.dispatchEvent(new Event('touchstart', { bubbles: true, cancelable: true }));
+    // jsdom has no PointerEvent; MouseEvent is enough for button + type.
+    leftButton?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }));
     expect(engine.tryMove).toHaveBeenCalledWith(-1, 0);
+  });
+
+  it('moves player on mouse pointerdown (not only touch)', () => {
+    TinyRPGApplication.bindTouchPad(asTouchPadGameEngine(engine));
+    const upButton = document.querySelector<HTMLButtonElement>('.pad-button[data-direction="up"]');
+    upButton?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }));
+    expect(engine.tryMove).toHaveBeenCalledWith(0, -1);
+  });
+
+  it('ignores non-primary mouse buttons', () => {
+    TinyRPGApplication.bindTouchPad(asTouchPadGameEngine(engine));
+    const leftButton = document.querySelector<HTMLButtonElement>('.pad-button[data-direction="left"]');
+    leftButton?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 2 }));
+    expect(engine.tryMove).not.toHaveBeenCalled();
   });
 
   it('ignores touch buttons without data-direction', () => {
@@ -422,7 +437,7 @@ describe('TinyRPGApplication.bindTouchPad', () => {
     TinyRPGApplication.bindTouchPad(asTouchPadGameEngine(engine));
     const button = document.querySelector<HTMLButtonElement>('.pad-button');
 
-    button?.dispatchEvent(new Event('touchstart', { bubbles: true, cancelable: true }));
+    button?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }));
 
     expect(engine.tryMove).not.toHaveBeenCalled();
   });

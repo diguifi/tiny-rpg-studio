@@ -265,12 +265,15 @@ class TinyRPGApplication {
     };
 
     touchButtons.forEach((btn) => {
-      // Touch can't rely on CSS :active (and our preventDefault suppresses it),
-      // so we drive the "pressed" visual with a class while the finger is down.
+      // Pointer events cover both touch and mouse. Touch can't rely on CSS
+      // :active (and our preventDefault suppresses it), so we drive the
+      // "pressed" visual with a class while the pointer is down.
       const release = () => btn.classList.remove('is-pressed');
       btn.addEventListener(
-        'touchstart',
+        'pointerdown',
         (ev) => {
+          // Ignore non-primary mouse buttons; touch/pen report button 0.
+          if (ev.button !== 0) return;
           ev.preventDefault();
           btn.classList.add('is-pressed');
           const dialog = gameEngine.gameState.getDialog();
@@ -283,10 +286,10 @@ class TinyRPGApplication {
           const delta = directionMap[dir];
           gameEngine.tryMove(delta[0], delta[1]);
         },
-        { passive: false },
       );
-      btn.addEventListener('touchend', release);
-      btn.addEventListener('touchcancel', release);
+      btn.addEventListener('pointerup', release);
+      btn.addEventListener('pointercancel', release);
+      btn.addEventListener('pointerleave', release);
     });
   }
 
