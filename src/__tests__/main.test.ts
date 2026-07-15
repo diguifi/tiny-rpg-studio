@@ -335,6 +335,37 @@ describe('TinyRPGApplication.bindResetButton', () => {
   });
 });
 
+describe('TinyRPGApplication.bindExportResetButton', () => {
+  let mockGameEngine: MockGameEngine;
+
+  beforeEach(() => {
+    mockGameEngine = new MockGameEngine();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('returns early when export reset button is missing', () => {
+    document.body.innerHTML = '';
+    expect(() =>
+      TinyRPGApplication.bindExportResetButton(asBindResetGameEngine(mockGameEngine)),
+    ).not.toThrow();
+  });
+
+  it('calls resetGame when export reset button is clicked', () => {
+    document.body.innerHTML = '<button id="btn-export-reset" type="button">Reset</button>';
+    const button = document.getElementById('btn-export-reset') as HTMLButtonElement;
+    const blurSpy = vi.spyOn(button, 'blur');
+
+    TinyRPGApplication.bindExportResetButton(asBindResetGameEngine(mockGameEngine));
+    button.click();
+
+    expect(mockGameEngine.resetGame).toHaveBeenCalledTimes(1);
+    expect(blurSpy).toHaveBeenCalled();
+  });
+});
+
 describe('TinyRPGApplication.loadSharedGameIfAvailable', () => {
   let engine: MockSharedLoadEngine;
 

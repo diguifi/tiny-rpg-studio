@@ -68,12 +68,7 @@ function setupDom() {
   gameContainer.innerHTML = '<canvas></canvas>';
   document.body.appendChild(gameContainer);
 
-  const resetBtn = document.createElement('button');
-  resetBtn.id = 'btn-reset';
-  resetBtn.textContent = 'Reset';
-  document.body.appendChild(resetBtn);
-
-  return { exportBtn, importBtn, shareInput, gameContainer, resetBtn };
+  return { exportBtn, importBtn, shareInput, gameContainer };
 }
 
 function makeApi(overrides: Partial<NonNullable<typeof mockState.api>> = {}) {
@@ -277,6 +272,55 @@ describe('EditorExportService', () => {
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:test');
 
     expect(createdBlob).toBeInstanceOf(Blob);
+  });
+
+  it('exportProjectAsHtml injects export-only reset and omits Studio tabs/reset chrome', async () => {
+    const gameContainer = document.getElementById('game-container');
+    if (!gameContainer) throw new Error('game-container missing');
+    const audio = document.createElement('div');
+    audio.id = 'game-audio-controls';
+    gameContainer.appendChild(audio);
+    const fullscreen = document.createElement('button');
+    fullscreen.id = 'game-fullscreen-toggle';
+    gameContainer.appendChild(fullscreen);
+
+    setStyleSheets([{ href: null, cssRules: [{ cssText: '.a{color:red;}' }] }]);
+    mockState.trGet.mockImplementation((key, fallback = '') => {
+      if (key === 'export.resetAria') return 'Restart the game';
+      if (key === 'export.openStudio') return 'Open Studio';
+      // If text used i18n, this would inject a non-English label.
+      if (key === 'export.reset') return 'Reiniciar';
+      return fallback;
+    });
+    fetchSpy
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve('console.log("bundle ok");') } as FakeResponse)
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve('woff'), blob: () => Promise.resolve(new Blob(['woff'])) } as FakeResponse);
+
+    const svc = new EditorExportService();
+    await svc.exportProjectAsHtml();
+
+    expect(createdBlob).toBeInstanceOf(Blob);
+    if (!(createdBlob instanceof Blob)) throw new Error('expected export blob');
+    const exportBlob = createdBlob;
+    const html = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error ?? new Error('Failed to read export blob'));
+      reader.readAsText(exportBlob);
+    });
+    expect(html).toContain('id="btn-export-reset"');
+    expect(html).toContain('export-reset-button');
+    expect(html).toContain('>Reset</button>');
+    expect(html).not.toContain('>Reiniciar</button>');
+    expect(html).toContain('Restart the game');
+    expect(html).toContain('#btn-export-reset.export-reset-button');
+    expect(html).not.toContain('id="btn-reset"');
+    expect(html).not.toContain('class="tabs"');
+    expect(html).not.toContain('tabs-links');
+    expect(html).not.toContain('id="game-audio-controls"');
+    expect(html).not.toContain('id="game-fullscreen-toggle"');
+    expect(html).toContain('id="tab-game"');
+    expect(html).toContain('class="tab-content active"');
   });
 
   it('exportProjectAsHtml alerts when script endpoint returns HTML in fallback mode', async () => {

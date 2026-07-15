@@ -155,6 +155,7 @@ class TinyRPGApplication {
     new DevlogModal();
     new AboutModal();
     this.bindResetButton(gameEngine);
+    this.bindExportResetButton(gameEngine);
     this.bindTouchPad(gameEngine);
     this.bindFullscreenButton();
     this.bindBackgroundMusicVolumeControl(gameEngine);
@@ -246,6 +247,16 @@ class TinyRPGApplication {
     document.addEventListener('editor-tab-activated', updateButtonState);
     document.addEventListener('language-changed', updateButtonState);
     updateButtonState();
+  }
+
+  /** Export-only reset control (`#btn-export-reset`); no-ops when the node is absent. */
+  static bindExportResetButton(gameEngine: GameEngine): void {
+    const button = document.getElementById('btn-export-reset');
+    if (!(button instanceof HTMLButtonElement)) return;
+    button.addEventListener('click', () => {
+      gameEngine.resetGame();
+      button.blur();
+    });
   }
 
   static bindTouchPad(gameEngine: GameEngine): void {

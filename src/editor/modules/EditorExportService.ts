@@ -369,9 +369,21 @@ class EditorExportService {
             }
             const containerClone = gameContainer.cloneNode(true) as HTMLElement;
 
-            // Clone reset button
-            const resetButton = document.getElementById('btn-reset');
-            const resetClone = resetButton ? (resetButton.cloneNode(true) as HTMLElement) : null;
+            // Drop Studio runtime chrome that would duplicate when export boots
+            // (fullscreen + volume are recreated by main.ts binders).
+            containerClone.querySelector('#game-audio-controls')?.remove();
+            containerClone.querySelector('#game-fullscreen-toggle')?.remove();
+
+            const exportReset = document.createElement('button');
+            exportReset.id = 'btn-export-reset';
+            exportReset.type = 'button';
+            exportReset.className = 'export-reset-button';
+            exportReset.textContent = 'R';
+            exportReset.setAttribute(
+                'aria-label',
+                TextResources.get('export.resetAria', 'Restart the game'),
+            );
+            containerClone.appendChild(exportReset);
 
             const allScripts = Object.values(scripts).join('');
             if (!allScripts.trim()) {
@@ -393,6 +405,7 @@ class EditorExportService {
                 #game-container{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;background-color:#000;overflow:hidden}
                 .game-controls{display:flex;justify-content:center;margin-top:1rem}
                 canvas{image-rendering:pixelated;image-rendering:crisp-edges}
+                #btn-export-reset.export-reset-button{position:absolute;right:clamp(12px,4vw,32px);bottom:clamp(100px,14vw,120px);z-index:10;padding:6px 10px;border:2px solid var(--border,#2a2f3a);background:rgba(12,15,22,0.9);color:#fff;font-family:var(--ui-font-family,monospace);cursor:pointer;pointer-events:auto}
                 </style>
                 <script>
                 console.log('[TinyRPG Export] Booting exported build');
@@ -412,11 +425,6 @@ class EditorExportService {
                 </script>
                 <div class="app">
                 <main>
-                <div class="tabs">
-                    <div class="tabs-links">
-                        ${resetClone ? resetClone.outerHTML : ''}
-                    </div>
-                </div>
                 <div class="tab-content active" id="tab-game">
                 ${containerClone.outerHTML}
                 </div>
