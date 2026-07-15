@@ -168,8 +168,8 @@ class ShareConstants {
         return ShareConstants.VERSION_34;
     }
 
-    // Sprite silhouette outline (default on, palette color 1). Payload key '1':
-    //   missing → on + color 1; "0" / "0cN" → off; "cN" → on with color N (hex).
+    // Sprite silhouette outline (default off, palette color 1). Payload key '1':
+    //   missing → off + color 1; "1" / "1cN" → on; "0cN" → off + color N.
     static get SPRITE_OUTLINE_VERSION() {
         return ShareConstants.VERSION_35;
     }

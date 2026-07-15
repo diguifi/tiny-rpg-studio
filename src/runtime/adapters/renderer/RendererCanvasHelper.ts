@@ -70,11 +70,11 @@ class RendererCanvasHelper {
         return this.paletteManager?.getColor(index) ?? DEFAULT_SPRITE_OUTLINE_COLOR;
     }
 
-    /** Project Visuals checkbox; defaults to on when unset. */
+    /** Project Visuals checkbox; defaults to off when unset. */
     isSpriteOutlineEnabled(): boolean {
         const game = this.gameState?.getGame?.();
-        if (!game) return true;
-        return game.spriteOutline !== false;
+        if (!game) return false;
+        return game.spriteOutline === true;
     }
 
     /** Empty / transparent cells are not filled and may receive outline. */

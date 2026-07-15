@@ -20,6 +20,11 @@ function asCanvasCtx(ctx: TestCtx): CanvasRenderingContext2D {
   return ctx as unknown as CanvasRenderingContext2D;
 }
 
+/** Outline defaults to off; tests that assert outlines must enable it. */
+function outlineOnGameState(colorIndex = 1) {
+  return { getGame: () => ({ spriteOutline: true, spriteOutlineColor: colorIndex }) };
+}
+
 function makeTile(overrides: Partial<TileDefinition> = {}): TileDefinition {
   return {
     id: '1',
@@ -64,7 +69,8 @@ describe('RendererCanvasHelper', () => {
       document.createElement('canvas'),
       asCanvasCtx(ctx),
       null,
-      paletteManager
+      paletteManager,
+      outlineOnGameState()
     );
 
     helper.drawSprite(
@@ -165,7 +171,13 @@ describe('RendererCanvasHelper', () => {
 
   it('drawSprite never paints outline outside an 8x8 grid', () => {
     const ctx = makeCtx();
-    const helper = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(ctx), null);
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'),
+      asCanvasCtx(ctx),
+      null,
+      null,
+      outlineOnGameState()
+    );
     const sprite = Array.from({ length: 8 }, () => Array<string | null>(8).fill(null));
     sprite[0][0] = '#f00';
     sprite[7][7] = '#0f0';
@@ -186,7 +198,13 @@ describe('RendererCanvasHelper', () => {
     const tilePixels = setPixelGrid('#f00', true);
     const tile = makeTile({ pixels: tilePixels as unknown as TileDefinition['pixels'] });
     const tileManager = { getTile: vi.fn(() => tile) };
-    const helper = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(ctx), tileManager);
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'),
+      asCanvasCtx(ctx),
+      tileManager,
+      null,
+      outlineOnGameState()
+    );
 
     helper.drawCustomTile('x', 10, 20, 16);
 
@@ -243,7 +261,13 @@ describe('RendererCanvasHelper', () => {
     const tileManager = {
       getTile: vi.fn(() => tile),
     };
-    const helper = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(ctx), tileManager);
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'),
+      asCanvasCtx(ctx),
+      tileManager,
+      null,
+      outlineOnGameState()
+    );
 
     helper.drawCustomTile('x', 10, 20, 16);
 
@@ -263,7 +287,13 @@ describe('RendererCanvasHelper', () => {
     const targetCtx = makeCtx();
     vi.spyOn(targetCanvas, 'getContext').mockReturnValue(asCanvasCtx(targetCtx));
 
-    const helper = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(makeCtx()), null);
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'),
+      asCanvasCtx(makeCtx()),
+      null,
+      null,
+      outlineOnGameState()
+    );
     const tile = makeTile({ pixels: setPixelGrid('#0f0', true) as unknown as TileDefinition['pixels'] });
 
     helper.drawTileOnCanvas(targetCanvas, tile);
@@ -295,7 +325,13 @@ describe('RendererCanvasHelper', () => {
     const customCtx = makeCtx();
     const tile = makeTile({ pixels: setPixelGrid('#00f', true) as unknown as TileDefinition['pixels'] });
     const tileManager = { getTile: vi.fn(() => tile) };
-    const helper = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(mainCtx), tileManager);
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'),
+      asCanvasCtx(mainCtx),
+      tileManager,
+      null,
+      outlineOnGameState()
+    );
 
     helper.drawTilePreview('tile-1', 4, 6, 16, asCanvasCtx(customCtx));
 

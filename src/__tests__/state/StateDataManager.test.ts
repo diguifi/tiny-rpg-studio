@@ -14,7 +14,7 @@ const makeGame = (): GameDefinition => ({
   backgroundMusicVideoId: undefined,
   backgroundMusicVolume: 100,
   hideHud: false,
-  spriteOutline: true,
+  spriteOutline: false,
   spriteOutlineColor: 1,
   disableSkills: false,
   roomSize: 8,
@@ -60,7 +60,7 @@ describe('StateDataManager', () => {
       backgroundMusicVideoId: undefined,
       backgroundMusicVolume: 100,
       hideHud: false,
-      spriteOutline: true,
+      spriteOutline: false,
       spriteOutlineColor: 1,
       disableSkills: false,
       disablePixelFont: false,
@@ -191,7 +191,7 @@ describe('StateDataManager', () => {
     expect(game.hideHud).toBe(true);
   });
 
-  it('imports spriteOutline false and defaults missing to true', () => {
+  it('imports spriteOutline true and defaults missing to false', () => {
     const game = makeGame();
     const deps = {
       worldManager: {
@@ -212,12 +212,12 @@ describe('StateDataManager', () => {
     };
 
     const manager = new StateDataManager({ game, ...deps });
-    manager.importGameData({ spriteOutline: false, spriteOutlineColor: 9 });
-    expect(game.spriteOutline).toBe(false);
+    manager.importGameData({ spriteOutline: true, spriteOutlineColor: 9 });
+    expect(game.spriteOutline).toBe(true);
     expect(game.spriteOutlineColor).toBe(9);
 
     manager.importGameData({});
-    expect(game.spriteOutline).toBe(true);
+    expect(game.spriteOutline).toBe(false);
     expect(game.spriteOutlineColor).toBe(1);
   });
 

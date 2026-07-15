@@ -431,8 +431,8 @@ class ShareDecoder {
             ? normalizeBackgroundMusicVolume(parseInt(payload['2'], 36))
             : DEFAULT_BACKGROUND_MUSIC_VOLUME;
         const hideHud = version >= ShareConstants.HIDE_HUD_VERSION && payload.H === '1';
-        // Outline (VERSION_35+): see ShareEncoder for payload key '1' value formats.
-        let spriteOutline = true;
+        // Outline (VERSION_35+): default off + color 1. See ShareEncoder for formats.
+        let spriteOutline = false;
         let spriteOutlineColor = 1;
         if (version >= ShareConstants.SPRITE_OUTLINE_VERSION) {
             const outlineRaw = payload['1'];
@@ -441,6 +441,12 @@ class ShareDecoder {
                 if (rest.startsWith('0')) {
                     spriteOutline = false;
                     rest = rest.slice(1);
+                } else if (rest.startsWith('1')) {
+                    spriteOutline = true;
+                    rest = rest.slice(1);
+                } else if (rest.startsWith('c')) {
+                    // Older draft: "cN" alone meant on + color N
+                    spriteOutline = true;
                 }
                 if (rest.startsWith('c') && rest.length >= 2) {
                     const parsed = parseInt(rest.charAt(1), 16);

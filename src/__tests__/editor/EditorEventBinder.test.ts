@@ -92,7 +92,7 @@ function makeDom() {
     projectHideHud.type = 'checkbox';
     const projectSpriteOutline = document.createElement('input');
     projectSpriteOutline.type = 'checkbox';
-    projectSpriteOutline.checked = true;
+    projectSpriteOutline.checked = false;
     const projectSpriteOutlineColor = document.createElement('select');
     const projectDisableSkills = document.createElement('input');
     projectDisableSkills.type = 'checkbox';

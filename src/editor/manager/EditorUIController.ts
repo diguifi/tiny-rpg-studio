@@ -160,7 +160,7 @@ class EditorUIController extends EditorManagerModule {
         select.value = String(selected);
         select.style.backgroundColor = colors[selected] ?? '#000000';
         select.style.color = '#ffffff';
-        select.disabled = game.spriteOutline === false;
+        select.disabled = game.spriteOutline !== true;
     }
 
     private syncSpriteOutlineColorSelect() {
@@ -175,7 +175,7 @@ class EditorUIController extends EditorManagerModule {
         select.value = String(selected);
         const option = select.selectedOptions.item(0);
         select.style.backgroundColor = option?.style.backgroundColor ?? select.style.backgroundColor;
-        select.disabled = game.spriteOutline === false;
+        select.disabled = game.spriteOutline !== true;
     }
 
     setDisableSkills(active: boolean = false) {
@@ -294,7 +294,7 @@ class EditorUIController extends EditorManagerModule {
             this.dom.projectHideHud.checked = Boolean(game.hideHud);
         }
         if (this.dom.projectSpriteOutline) {
-            this.dom.projectSpriteOutline.checked = game.spriteOutline !== false;
+            this.dom.projectSpriteOutline.checked = game.spriteOutline === true;
         }
         this.refreshSpriteOutlineColorSelect();
         if (this.dom.projectDisableSkills) {

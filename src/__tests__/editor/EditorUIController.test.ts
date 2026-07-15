@@ -54,7 +54,7 @@ function makeManager(stateOverrides: Record<string, unknown> = {}) {
   projectHideHud.type = 'checkbox';
   const projectSpriteOutline = document.createElement('input');
   projectSpriteOutline.type = 'checkbox';
-  projectSpriteOutline.checked = true;
+  projectSpriteOutline.checked = false;
   const projectSpriteOutlineColor = document.createElement('select');
   const projectDisableSkills = document.createElement('input');
   projectDisableSkills.type = 'checkbox';
@@ -114,7 +114,7 @@ function makeManager(stateOverrides: Record<string, unknown> = {}) {
         title: 'Test Title',
         author: 'Test Author',
         hideHud: false,
-        spriteOutline: true,
+        spriteOutline: false,
         spriteOutlineColor: 1,
         disableSkills: false,
         backgroundMusicVideoId: undefined,

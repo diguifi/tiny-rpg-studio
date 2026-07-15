@@ -56,20 +56,19 @@ describe('ShareEncoder', () => {
     expect(decoded?.hideHud).toBe(true);
   });
 
-  it('preserves spriteOutline false through an encode/decode round trip', () => {
-    const code = ShareEncoder.buildShareCode({ spriteOutline: false });
+  it('defaults spriteOutline to false when not encoded', () => {
+    const code = ShareEncoder.buildShareCode({});
     const decoded = ShareDecoder.decodeShareCode(code) as ({ spriteOutline?: boolean; spriteOutlineColor?: number } | null);
 
-    expect(code.split('.').some((segment) => segment === '10')).toBe(true);
     expect(decoded?.spriteOutline).toBe(false);
     expect(decoded?.spriteOutlineColor).toBe(1);
   });
 
-  it('defaults spriteOutline to true when not encoded', () => {
-    const code = ShareEncoder.buildShareCode({});
+  it('preserves spriteOutline true through an encode/decode round trip', () => {
+    const code = ShareEncoder.buildShareCode({ spriteOutline: true });
     const decoded = ShareDecoder.decodeShareCode(code) as ({ spriteOutline?: boolean; spriteOutlineColor?: number } | null);
 
-    expect(code.split('.').some((segment) => /^1(0|c|$)/.test(segment) || segment === '10')).toBe(false);
+    expect(code.split('.').some((segment) => segment === '11')).toBe(true);
     expect(decoded?.spriteOutline).toBe(true);
     expect(decoded?.spriteOutlineColor).toBe(1);
   });
@@ -78,7 +77,7 @@ describe('ShareEncoder', () => {
     const code = ShareEncoder.buildShareCode({ spriteOutline: true, spriteOutlineColor: 10 });
     const decoded = ShareDecoder.decodeShareCode(code) as ({ spriteOutline?: boolean; spriteOutlineColor?: number } | null);
 
-    expect(code.split('.').some((segment) => segment === '1ca')).toBe(true);
+    expect(code.split('.').some((segment) => segment === '11ca')).toBe(true);
     expect(decoded?.spriteOutline).toBe(true);
     expect(decoded?.spriteOutlineColor).toBe(10);
   });

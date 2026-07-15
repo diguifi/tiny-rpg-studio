@@ -572,22 +572,23 @@ class ShareEncoder {
         if (gameData?.hideHud) {
             parts.push('H1');
         }
-        // Outline payload key '1' (VERSION_35+):
-        //   missing     → on, color 1 (default)
-        //   "0"         → off, color 1
-        //   "0cN"       → off, color N (hex digit)
-        //   "cN"        → on, color N (hex digit, only when N !== 1)
+        // Outline payload key '1' (VERSION_35+), default off + color 1:
+        //   missing  → off, color 1
+        //   "1"      → on, color 1
+        //   "1cN"    → on, color N (hex digit)
+        //   "0cN"    → off, color N (hex digit)
+        //   "0" / "cN" still decoded for older v35 drafts
         {
-            const outlineOn = gameData?.spriteOutline !== false;
+            const outlineOn = gameData?.spriteOutline === true;
             const colorRaw = Number(gameData?.spriteOutlineColor);
             const color = Number.isFinite(colorRaw)
                 ? Math.max(0, Math.min(15, Math.floor(colorRaw)))
                 : 1;
             const colorPart = color === 1 ? '' : `c${color.toString(16)}`;
-            if (!outlineOn) {
-                parts.push('1' + '0' + colorPart);
+            if (outlineOn) {
+                parts.push('1' + '1' + colorPart);
             } else if (colorPart) {
-                parts.push('1' + colorPart);
+                parts.push('1' + '0' + colorPart);
             }
         }
         if (gameData?.disableSkills) {

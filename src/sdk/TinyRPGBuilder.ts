@@ -21,7 +21,7 @@ class TinyRPGBuilder {
     private _title?: string;
     private _author?: string;
     private _hideHud = false;
-    private _spriteOutline = true;
+    private _spriteOutline = false;
     private _spriteOutlineColor = 1;
     private _disableSkills = false;
     private _disablePixelFont = false;
@@ -246,7 +246,7 @@ class TinyRPGBuilder {
             title: this._title,
             author: this._author,
             hideHud: this._hideHud || undefined,
-            spriteOutline: this._spriteOutline === false ? false : undefined,
+            spriteOutline: this._spriteOutline || undefined,
             spriteOutlineColor: this._spriteOutlineColor !== 1 ? this._spriteOutlineColor : undefined,
             disableSkills: this._disableSkills || undefined,
             disablePixelFont: this._disablePixelFont || undefined,
