@@ -23,6 +23,13 @@ export type DevlogEntry = {
 
 export const DEVLOG_ENTRIES: DevlogEntry[] = [
   {
+    id: '2026-07-14-export-hide-open-studio',
+    date: '2026-07-14',
+    title: 'Optional Open Studio on HTML export',
+    description:
+      'When you export a project as HTML, a new “Editable in Studio” checkbox lets you hide the Open Studio button on the published game. Leave it on to keep the button; turn it off for a cleaner play-only page.',
+  },
+  {
     id: '2026-07-12-sword-durability-hud',
     date: '2026-07-12',
     title: 'See sword durability on the HUD',

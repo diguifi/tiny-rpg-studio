@@ -55,6 +55,12 @@ function setupDom() {
   exportBtn.id = 'btn-generate-html';
   document.body.appendChild(exportBtn);
 
+  const editable = document.createElement('input');
+  editable.type = 'checkbox';
+  editable.id = 'export-editable-in-studio';
+  editable.checked = true;
+  document.body.appendChild(editable);
+
   const importBtn = document.createElement('button');
   importBtn.id = 'btn-import-html';
   document.body.appendChild(importBtn);
@@ -310,7 +316,8 @@ describe('EditorExportService', () => {
     });
     expect(html).toContain('id="btn-export-reset"');
     expect(html).toContain('export-reset-button');
-    expect(html).toContain('>Reset</button>');
+    // Label is a fixed single letter so export UI stays compact and language-neutral.
+    expect(html).toContain('>R</button>');
     expect(html).not.toContain('>Reiniciar</button>');
     expect(html).toContain('Restart the game');
     expect(html).toContain('#btn-export-reset.export-reset-button');
@@ -321,6 +328,58 @@ describe('EditorExportService', () => {
     expect(html).not.toContain('id="game-fullscreen-toggle"');
     expect(html).toContain('id="tab-game"');
     expect(html).toContain('class="tab-content active"');
+  });
+
+  async function readExportHtmlBlob(): Promise<string> {
+    expect(createdBlob).toBeInstanceOf(Blob);
+    if (!(createdBlob instanceof Blob)) throw new Error('expected export blob');
+    const exportBlob = createdBlob;
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error ?? new Error('Failed to read export blob'));
+      reader.readAsText(exportBlob);
+    });
+  }
+
+  it('exportProjectAsHtml keeps Open Studio visible when editable-in-studio is checked', async () => {
+    const editable = document.getElementById('export-editable-in-studio') as HTMLInputElement;
+    editable.checked = true;
+    setStyleSheets([{ href: null, cssRules: [{ cssText: '.a{color:red;}' }] }]);
+    mockState.trGet.mockImplementation((key, fallback = '') => {
+      if (key === 'export.openStudio') return 'Open Studio';
+      return fallback;
+    });
+    fetchSpy
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve('console.log("bundle ok");') } as FakeResponse)
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve('woff'), blob: () => Promise.resolve(new Blob(['woff'])) } as FakeResponse);
+
+    const svc = new EditorExportService();
+    await svc.exportProjectAsHtml();
+
+    const html = await readExportHtmlBlob();
+    expect(html).toContain('id="btn-open-studio"');
+    expect(html).not.toContain('#btn-open-studio{display:none}');
+  });
+
+  it('exportProjectAsHtml hides Open Studio with CSS when editable-in-studio is unchecked', async () => {
+    const editable = document.getElementById('export-editable-in-studio') as HTMLInputElement;
+    editable.checked = false;
+    setStyleSheets([{ href: null, cssRules: [{ cssText: '.a{color:red;}' }] }]);
+    mockState.trGet.mockImplementation((key, fallback = '') => {
+      if (key === 'export.openStudio') return 'Open Studio';
+      return fallback;
+    });
+    fetchSpy
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve('console.log("bundle ok");') } as FakeResponse)
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve('woff'), blob: () => Promise.resolve(new Blob(['woff'])) } as FakeResponse);
+
+    const svc = new EditorExportService();
+    await svc.exportProjectAsHtml();
+
+    const html = await readExportHtmlBlob();
+    expect(html).toContain('id="btn-open-studio"');
+    expect(html).toContain('#btn-open-studio{display:none}');
   });
 
   it('exportProjectAsHtml alerts when script endpoint returns HTML in fallback mode', async () => {
