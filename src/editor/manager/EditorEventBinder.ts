@@ -39,6 +39,7 @@ class EditorEventBinder extends EditorManagerModule {
             projectTestSkillList,
             projectTestGodMode,
             projectTestDebugVision,
+            projectEnableEffects,
             projectHideHud,
             projectSpriteOutline,
             projectSpriteOutlineColor,
@@ -97,6 +98,10 @@ class EditorEventBinder extends EditorManagerModule {
         projectTestDebugVision?.addEventListener('change', (ev: Event) => {
             const target = ev.target as HTMLInputElement;
             DebugFlags.setEnemyVision(target.checked);
+        });
+        projectEnableEffects?.addEventListener('change', (ev: Event) => {
+            const target = ev.target as HTMLInputElement;
+            manager.setEnableEffects(target.checked);
         });
         projectHideHud?.addEventListener('change', (ev: Event) => {
             const target = ev.target as HTMLInputElement;

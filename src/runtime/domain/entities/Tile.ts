@@ -1,5 +1,8 @@
 type TileFrame = string[][];
 
+/** Canvas liquid treatment for a tile (VERSION_36+ share / editor). */
+type TileVisualEffectKind = 'none' | 'water' | 'lava';
+
 type TileDefinitionData = {
     id: string | number;
     name: string;
@@ -9,6 +12,8 @@ type TileDefinitionData = {
     collision: boolean;
     category: string;
     layouts?: (number | null)[][][]; // Store original numeric layouts for palette regeneration
+    /** Explicit liquid visual effect; when unset, renderer falls back to name/category heuristics. */
+    visualEffect?: TileVisualEffectKind;
 };
 
 class Tile {
@@ -21,6 +26,7 @@ class Tile {
     collision: boolean;
     category: string;
     layouts?: (number | null)[][][]; // Store original numeric layouts for palette regeneration
+    visualEffect?: TileVisualEffectKind;
 
     constructor(data: TileDefinitionData) {
         this.id = data.id;
@@ -32,8 +38,9 @@ class Tile {
         this.collision = data.collision;
         this.category = data.category;
         this.layouts = data.layouts;
+        this.visualEffect = data.visualEffect;
     }
 }
 
-export type { TileDefinitionData, TileFrame };
+export type { TileDefinitionData, TileFrame, TileVisualEffectKind };
 export { Tile };

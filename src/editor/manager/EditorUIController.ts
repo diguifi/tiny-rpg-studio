@@ -31,6 +31,7 @@ type ProjectGameSettings = {
     title?: string;
     author?: string;
     hideHud?: boolean;
+    enableEffects?: boolean;
     spriteOutline?: boolean;
     spriteOutlineColor?: number;
     disableSkills?: boolean;
@@ -108,6 +109,14 @@ class EditorUIController extends EditorManagerModule {
         this.updateJSON();
     }
 
+    setEnableEffects(active: boolean = true) {
+        this.gameEngine.setEnableEffects(active !== false);
+        this.updateJSON();
+        // Game canvas redraws in GameEngine.setEnableEffects; also refresh editor
+        // tile list / map / previews that paint through the same effect path.
+        this.refreshTileEffectViews();
+    }
+
     setSpriteOutline(active: boolean = true) {
         this.gameEngine.setSpriteOutline(Boolean(active));
         if (this.dom.projectSpriteOutlineColor) {
@@ -131,6 +140,13 @@ class EditorUIController extends EditorManagerModule {
         this.renderService.updateSelectedTilePreview();
         this.renderService.renderObjectCatalog();
         this.renderService.renderObjects();
+    }
+
+    /** Redraw editor surfaces that paint water/lava tile effects. */
+    private refreshTileEffectViews() {
+        this.renderService.renderEditor();
+        this.renderService.renderTileList();
+        this.renderService.updateSelectedTilePreview();
     }
 
     /** Rebuild outline color options from the current 16-color palette. */
@@ -289,6 +305,9 @@ class EditorUIController extends EditorManagerModule {
         }
         if (this.dom.authorInput) {
             this.dom.authorInput.value = game.author || '';
+        }
+        if (this.dom.projectEnableEffects) {
+            this.dom.projectEnableEffects.checked = game.enableEffects !== false;
         }
         if (this.dom.projectHideHud) {
             this.dom.projectHideHud.checked = Boolean(game.hideHud);

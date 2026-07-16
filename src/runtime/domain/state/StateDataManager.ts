@@ -33,6 +33,7 @@ type ImportData = {
     backgroundMusicVideoId?: string;
     backgroundMusicVolume?: unknown;
     hideHud?: boolean;
+    enableEffects?: boolean;
     spriteOutline?: boolean;
     spriteOutlineColor?: number;
     disableSkills?: boolean;
@@ -56,6 +57,8 @@ type ImportData = {
     skillOrder?: string[];
     skillCustomizations?: SkillCustomizationMap;
     online?: OnlineConfig;
+    /** VERSION_36 share map: tileId → water|lava (applied after default tiles load). */
+    tileVisualEffects?: Record<string, 'water' | 'lava' | 'none'>;
 };
 
 class StateDataManager {
@@ -96,6 +99,8 @@ class StateDataManager {
             backgroundMusicVideoId: this.game.backgroundMusicVideoId,
             backgroundMusicVolume: normalizeBackgroundMusicVolume(this.game.backgroundMusicVolume),
             hideHud: Boolean(this.game.hideHud),
+            // Default on; only persist explicit false so exports stay compact.
+            enableEffects: this.game.enableEffects === false ? false : true,
             spriteOutline: Boolean(this.game.spriteOutline),
             spriteOutlineColor: normalizeSpriteOutlineColor(this.game.spriteOutlineColor),
             disableSkills: Boolean(this.game.disableSkills),
@@ -161,6 +166,8 @@ class StateDataManager {
             backgroundMusicVideoId: normalizeBackgroundMusicVideoId(data.backgroundMusicVideoId),
             backgroundMusicVolume: normalizeBackgroundMusicVolume(data.backgroundMusicVolume),
             hideHud: Boolean(data.hideHud),
+            // Missing means enabled (default true for pre-v36 and new games).
+            enableEffects: data.enableEffects === false ? false : true,
             spriteOutline: Boolean(data.spriteOutline),
             spriteOutlineColor: normalizeSpriteOutlineColor(data.spriteOutlineColor),
             disableSkills: Boolean(data.disableSkills),
@@ -207,6 +214,14 @@ class StateDataManager {
             this.game.online = { enabled: true, spawnPoints };
         } else {
             this.game.online = undefined;
+        }
+
+        // Stash share map for GameEngine/TileManager after ensureDefaultTiles().
+        if (data.tileVisualEffects && typeof data.tileVisualEffects === 'object') {
+            (this.game as GameDefinition & { tileVisualEffects?: Record<string, 'water' | 'lava' | 'none'> }).tileVisualEffects =
+                data.tileVisualEffects;
+        } else {
+            delete (this.game as GameDefinition & { tileVisualEffects?: unknown }).tileVisualEffects;
         }
 
         const start = {

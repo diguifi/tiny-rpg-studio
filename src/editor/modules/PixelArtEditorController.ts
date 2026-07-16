@@ -6,6 +6,8 @@ import { TextResources } from '../../runtime/adapters/TextResources';
 import { TileDefinitions } from '../../runtime/domain/definitions/TileDefinitions';
 import { SpriteMatrixRegistry } from '../../runtime/domain/sprites/SpriteMatrixRegistry';
 
+type TileVisualEffectKind = 'none' | 'water' | 'lava';
+
 type ManagerDeps = {
     gameEngine: {
         getGame(): unknown;
@@ -14,8 +16,10 @@ type ManagerDeps = {
             paletteManager: { getActivePalette(): string[] };
         };
         tileManager: {
-            getTile(id: number): unknown;
+            getTile(id: number | string): unknown;
             refreshAnimationMetadata(): void;
+            getTileVisualEffect?(id: number | string): TileVisualEffectKind;
+            setTileVisualEffect?(id: number | string, effect: TileVisualEffectKind): void;
         };
     };
     renderAll(): void;
@@ -39,6 +43,8 @@ type DomDeps = {
     paeCopyCode: HTMLButtonElement | null;
     paeToolPaint: HTMLButtonElement | null;
     paeToolErase: HTMLButtonElement | null;
+    paeTileEffectRow?: HTMLElement | null;
+    paeTileEffect?: HTMLSelectElement | null;
 };
 
 export class PixelArtEditorController {
@@ -87,6 +93,7 @@ export class PixelArtEditorController {
         this.renderMeta();
         this.renderPalette();
         this.renderFrameBar();
+        this.syncTileEffectSelect();
         this.renderCanvas();
         this.syncToolButtons();
         return true;
@@ -100,6 +107,11 @@ export class PixelArtEditorController {
         if (!this.manager || !this.group) return;
         track('pixel_sprite_saved', { group: this.group });
         const game = this.manager.gameEngine.getGame() as { customSprites?: CustomSpriteEntry[] };
+
+        // Persist liquid visual effect for tiles (VERSION_36).
+        if (this.group === 'tile') {
+            this.persistTileVisualEffect();
+        }
 
         const objectDef = this.group === 'object' ? this.findObjectDef(this.key) : undefined;
 
@@ -130,7 +142,18 @@ export class PixelArtEditorController {
         if (!this.group) return;
         this.frames = this.loadBaseFrames(this.group, this.key, this.variant);
         this.activeFrameIndex = 0;
+        if (this.group === 'tile') {
+            // Restore preset default liquid effect when available.
+            const presetEffect = this.getPresetTileVisualEffect(this.key);
+            const select = this.dom?.paeTileEffect;
+            if (select) select.value = presetEffect;
+            this.manager?.gameEngine.tileManager.setTileVisualEffect?.(
+                this.resolveTileId(this.key),
+                presetEffect
+            );
+        }
         this.renderFrameBar();
+        this.syncTileEffectSelect();
         this.renderCanvas();
     }
 
@@ -291,6 +314,89 @@ export class PixelArtEditorController {
         this.dom?.paeToolErase?.classList.toggle('active', this.tool === 'erase');
     }
 
+    /** Show liquid-effect select only when editing a tile. */
+    private syncTileEffectSelect(): void {
+        const row = this.dom?.paeTileEffectRow;
+        const select = this.dom?.paeTileEffect;
+        if (!row || !select) return;
+
+        if (this.group !== 'tile') {
+            row.setAttribute('hidden', '');
+            return;
+        }
+
+        row.removeAttribute('hidden');
+        const tileId = this.resolveTileId(this.key);
+        const effect =
+            this.manager?.gameEngine.tileManager.getTileVisualEffect?.(tileId) ??
+            this.readTileVisualEffectFromGame(tileId);
+        select.value = effect;
+        this.refreshTileEffectOptionLabels();
+    }
+
+    private refreshTileEffectOptionLabels(): void {
+        const select = this.dom?.paeTileEffect;
+        if (!select) return;
+        for (const option of Array.from(select.options)) {
+            const key = option.getAttribute('data-text-key');
+            if (!key) continue;
+            const fallback =
+                option.value === 'water' ? 'Water' : option.value === 'lava' ? 'Lava' : 'None';
+            option.textContent = this.t(key, fallback);
+        }
+    }
+
+    private persistTileVisualEffect(): void {
+        if (!this.manager || this.group !== 'tile') return;
+        const raw = this.dom?.paeTileEffect?.value ?? 'none';
+        const effect: TileVisualEffectKind =
+            raw === 'water' || raw === 'lava' ? raw : 'none';
+        const tileId = this.resolveTileId(this.key);
+        if (this.manager.gameEngine.tileManager.setTileVisualEffect) {
+            this.manager.gameEngine.tileManager.setTileVisualEffect(tileId, effect);
+            return;
+        }
+        // Fallback: write onto tileset tile object directly.
+        const game = this.manager.gameEngine.getGame() as {
+            tileset?: { tiles?: Array<{ id?: number | string; visualEffect?: TileVisualEffectKind }> };
+        };
+        const tile = game.tileset?.tiles?.find((t) => String(t.id) === String(tileId));
+        if (tile) tile.visualEffect = effect;
+    }
+
+    private resolveTileId(key: string): number | string {
+        const asNum = Number(key);
+        return Number.isFinite(asNum) ? asNum : key;
+    }
+
+    private readTileVisualEffectFromGame(tileId: number | string): TileVisualEffectKind {
+        const game = this.manager?.gameEngine.getGame() as {
+            tileset?: { tiles?: Array<{ id?: number | string; visualEffect?: string; category?: string; name?: string }> };
+        } | undefined;
+        const tile = game?.tileset?.tiles?.find((t) => String(t.id) === String(tileId));
+        if (!tile) return 'none';
+        if (tile.visualEffect === 'water' || tile.visualEffect === 'lava' || tile.visualEffect === 'none') {
+            return tile.visualEffect;
+        }
+        const cat = (tile.category || '').toLowerCase();
+        const name = (tile.name || '').toLowerCase();
+        if (cat === 'agua' || name.includes('agua') || name.includes('water')) return 'water';
+        if (cat === 'perigo' || name.includes('lava')) return 'lava';
+        return 'none';
+    }
+
+    private getPresetTileVisualEffect(key: string): TileVisualEffectKind {
+        const tileId = this.resolveTileId(key);
+        const preset = TileDefinitions.TILE_PRESETS.find((t) => String(t.id) === String(tileId));
+        if (preset?.visualEffect === 'water' || preset?.visualEffect === 'lava' || preset?.visualEffect === 'none') {
+            return preset.visualEffect;
+        }
+        const cat = (preset?.category || '').toLowerCase();
+        if (cat === 'agua') return 'water';
+        if (cat === 'perigo') return 'lava';
+        return 'none';
+    }
+
     // ── Events (bound once in init) ─────────────────────────────
 
     private bindStaticEvents(): void {
@@ -309,6 +415,13 @@ export class PixelArtEditorController {
         this.dom?.paeToolErase?.addEventListener('click', () => {
             this.tool = 'erase';
             this.syncToolButtons();
+        });
+
+        this.dom?.paeTileEffect?.addEventListener('change', () => {
+            if (this.group !== 'tile') return;
+            this.persistTileVisualEffect();
+            this.manager?.renderAll();
+            this.manager?.updateJSON();
         });
 
         this.dom?.paePalette?.addEventListener('click', (e) => {
@@ -397,6 +510,7 @@ export class PixelArtEditorController {
                 this.renderPalette();
                 this.renderFrameBar();
             }
+            this.refreshTileEffectOptionLabels();
         });
     }
 

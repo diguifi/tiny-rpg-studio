@@ -87,6 +87,7 @@ class GameState {
             palette: ['#000000', '#1D2B53', '#FFF1E8'],
             backgroundMusicVolume: DEFAULT_BACKGROUND_MUSIC_VOLUME,
             hideHud: false,
+            enableEffects: true,
             spriteOutline: false,
             spriteOutlineColor: 1,
             disableSkills: false,

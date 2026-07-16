@@ -60,6 +60,7 @@ class EditorDomCache {
     spritesExportButton: HTMLButtonElement | null;
     spritesClearButton: HTMLButtonElement | null;
     projectSkillsResetOrder: HTMLButtonElement | null;
+    projectEnableEffects: HTMLInputElement | null;
     projectHideHud: HTMLInputElement | null;
     projectSpriteOutline: HTMLInputElement | null;
     projectSpriteOutlineColor: HTMLSelectElement | null;
@@ -96,6 +97,8 @@ class EditorDomCache {
     paeCopyCode: HTMLButtonElement | null = null;
     paeToolPaint: HTMLButtonElement | null = null;
     paeToolErase: HTMLButtonElement | null = null;
+    paeTileEffectRow: HTMLElement | null = null;
+    paeTileEffect: HTMLSelectElement | null = null;
     npcEditModal: HTMLElement | null = null;
     repositionIndicator: HTMLElement | null = null;
     objectEditModal: HTMLElement | null = null;
@@ -173,6 +176,7 @@ class EditorDomCache {
             this.spritesExportButton = null;
             this.spritesClearButton = null;
             this.projectSkillsResetOrder = null;
+            this.projectEnableEffects = null;
             this.projectHideHud = null;
             this.projectSpriteOutline = null;
             this.projectSpriteOutlineColor = null;
@@ -213,6 +217,8 @@ class EditorDomCache {
             this.paeCopyCode = null;
             this.paeToolPaint = null;
             this.paeToolErase = null;
+            this.paeTileEffectRow = null;
+            this.paeTileEffect = null;
             return;
         }
 
@@ -275,6 +281,7 @@ class EditorDomCache {
         this.spritesExportButton = root.querySelector('#sprites-export-button') as HTMLButtonElement | null;
         this.spritesClearButton = root.querySelector('#sprites-clear-button') as HTMLButtonElement | null;
         this.projectSkillsResetOrder = root.querySelector('#project-skills-reset-order') as HTMLButtonElement | null;
+        this.projectEnableEffects = root.querySelector('#project-enable-effects') as HTMLInputElement | null;
         this.projectHideHud = root.querySelector('#project-hide-hud') as HTMLInputElement | null;
         this.projectSpriteOutline = root.querySelector('#project-sprite-outline') as HTMLInputElement | null;
         this.projectSpriteOutlineColor = root.querySelector('#project-sprite-outline-color') as HTMLSelectElement | null;
@@ -315,6 +322,8 @@ class EditorDomCache {
         this.paeCopyCode = root.querySelector('#pae-copy-code') as HTMLButtonElement | null;
         this.paeToolPaint = root.querySelector('#pae-tool-paint') as HTMLButtonElement | null;
         this.paeToolErase = root.querySelector('#pae-tool-erase') as HTMLButtonElement | null;
+        this.paeTileEffectRow = root.querySelector('#pae-tile-effect-row') as HTMLElement | null;
+        this.paeTileEffect = root.querySelector('#pae-tile-effect') as HTMLSelectElement | null;
         this.skillEditModal = root.querySelector('#skill-edit-modal') as HTMLElement | null;
         this.skillEditIconInput = root.querySelector('#skill-edit-icon') as HTMLInputElement | null;
         this.skillEditIconPreview = root.querySelector('#skill-edit-icon-preview') as HTMLElement | null;

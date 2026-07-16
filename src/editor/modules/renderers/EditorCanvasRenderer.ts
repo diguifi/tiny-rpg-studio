@@ -320,11 +320,22 @@ class EditorCanvasRenderer extends EditorRendererBase {
         const pixels = tileManager.getTilePixels(tile);
         if (!Array.isArray(pixels)) return;
         const step = Math.max(1, Math.floor(size / 8));
-        // Use the runtime pixel-grid path so placed editor tiles get the same
-        // in-bounds silhouette outline as the game view.
+        // Prefer the full tile paint path so water/lava effects + outline match the game view.
         const canvasHelper = this.gameEngine.renderer.canvasHelper as {
+            drawTilePixels?: (
+                ctx: CanvasRenderingContext2D,
+                tile: unknown,
+                pixels: (string | null)[][],
+                px: number,
+                py: number,
+                size: number
+            ) => void;
             drawPixelGrid?: (ctx: CanvasRenderingContext2D, pixels: (string | null)[][], px: number, py: number, step: number) => void;
         };
+        if (canvasHelper.drawTilePixels) {
+            canvasHelper.drawTilePixels(ctx, tile, pixels, px, py, size);
+            return;
+        }
         if (canvasHelper.drawPixelGrid) {
             canvasHelper.drawPixelGrid(ctx, pixels, px, py, step);
             return;

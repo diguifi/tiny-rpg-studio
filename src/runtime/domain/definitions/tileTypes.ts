@@ -1,15 +1,19 @@
 export type TileFrame = string[][];
 export type TileId = string | number;
+export type TileVisualEffectKind = 'none' | 'water' | 'lava';
 
 export type TileDefinition = {
   id?: TileId;
   name?: string;
+  nameKey?: string;
   collision?: boolean;
   frames?: TileFrame[];
   pixels?: TileFrame;
   category?: string;
   animated?: boolean;
   layouts?: (number | null)[][][];
+  /** Explicit liquid visual effect (VERSION_36+). */
+  visualEffect?: TileVisualEffectKind;
 };
 
 export type TileMapLayer = (TileId | null)[][];

@@ -23,6 +23,13 @@ export type DevlogEntry = {
 
 export const DEVLOG_ENTRIES: DevlogEntry[] = [
   {
+    id: '2026-07-16-tile-liquid-effects',
+    date: '2026-07-16',
+    title: 'Water and lava tile effects',
+    description:
+      'Tiles can now look wet or molten. Water draws translucent with soft sparkles so the ground shows through; lava glows and flows with bright ridges. In the pixel art editor, pick None, Water, or Lava for any tile. Under Project → Visuals, “Enable effects” turns the look on or off for the whole game. Both settings travel with share links and HTML exports.',
+  },
+  {
     id: '2026-07-15-sprite-outlines',
     date: '2026-07-15',
     title: 'Sprite outlines',

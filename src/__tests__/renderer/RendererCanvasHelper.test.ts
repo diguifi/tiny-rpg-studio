@@ -4,15 +4,27 @@ import type { TileDefinition } from '../../runtime/domain/definitions/tileTypes'
 
 type TestCtx = {
   fillStyle: string;
+  globalAlpha: number;
+  globalCompositeOperation: string;
+  shadowColor: string;
+  shadowBlur: number;
   fillRect: ReturnType<typeof vi.fn>;
   clearRect: ReturnType<typeof vi.fn>;
+  save: ReturnType<typeof vi.fn>;
+  restore: ReturnType<typeof vi.fn>;
 };
 
 function makeCtx(): TestCtx {
   return {
     fillStyle: '',
+    globalAlpha: 1,
+    globalCompositeOperation: 'source-over',
+    shadowColor: 'transparent',
+    shadowBlur: 0,
     fillRect: vi.fn(),
     clearRect: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
   };
 }
 
@@ -344,4 +356,130 @@ describe('RendererCanvasHelper', () => {
     const noMgr = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(mainCtx), null);
     expect(() => noMgr.drawTilePreview('x', 0, 0, 8)).not.toThrow();
   });
+
+  it('classifies water and lava tiles for visual effects', () => {
+    const helper = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(makeCtx()), null);
+
+    expect(helper.getTileVisualEffect({ category: 'Agua', name: 'Agua Brilhante' })).toBe('water');
+    expect(helper.getTileVisualEffect({ category: 'Terreno', name: 'Shiny Water' })).toBe('water');
+    expect(helper.getTileVisualEffect({ category: 'Perigo', name: 'Lava Borbulhante' })).toBe('lava');
+    expect(helper.getTileVisualEffect({ category: 'Natureza', name: 'Arvore Verde' })).toBe('none');
+    expect(helper.getTileVisualEffect({ category: 'Terreno', name: 'Grama' })).toBe('none');
+    expect(helper.getTileVisualEffect(null)).toBe('none');
+    // Explicit visualEffect overrides name/category heuristics.
+    expect(helper.getTileVisualEffect({ category: 'Terreno', name: 'Grama', visualEffect: 'water' })).toBe('water');
+    expect(helper.getTileVisualEffect({ category: 'Agua', name: 'Agua', visualEffect: 'none' })).toBe('none');
+    expect(helper.getTileVisualEffect({ category: 'Natureza', name: 'Arvore', visualEffect: 'lava' })).toBe('lava');
+  });
+
+  it('respects project enableEffects master switch', () => {
+    const gameState = { getGame: () => ({ enableEffects: false }) };
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'),
+      asCanvasCtx(makeCtx()),
+      null,
+      null,
+      gameState
+    );
+    expect(helper.isTileEffectsEnabled()).toBe(false);
+    expect(helper.getTileVisualEffect({ category: 'Agua', name: 'Water', visualEffect: 'water' })).toBe('none');
+    expect(helper.getTileVisualEffect({ category: 'Perigo', name: 'Lava', visualEffect: 'lava' })).toBe('none');
+  });
+
+  it('draws water with depth tint, variable alpha body, and surface effects', () => {
+    const ctx = makeCtx();
+    // Mix deep blue + bright sparkle so luminance-based alpha differs.
+    const pixels = Array.from({ length: 8 }, (_, y) =>
+      Array.from({ length: 8 }, (_, x) => ((x + y) % 5 === 0 ? '#FFF1E8' : '#29ADFF'))
+    );
+    const tile = makeTile({
+      category: 'Agua',
+      name: 'Agua Brilhante',
+      pixels: pixels as unknown as TileDefinition['pixels'],
+    });
+    const tileManager = { getTile: vi.fn(() => tile) };
+    const helper = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(ctx), tileManager);
+    vi.spyOn(helper, 'getEffectTimeMs').mockReturnValue(0);
+
+    const alphas: number[] = [];
+    Object.defineProperty(ctx, 'globalAlpha', {
+      configurable: true,
+      get() {
+        return (this as { _alpha?: number })._alpha ?? 1;
+      },
+      set(value: number) {
+        (this as { _alpha?: number })._alpha = value;
+        alphas.push(value);
+      },
+    });
+
+    helper.drawCustomTile(5, 0, 0, 16);
+
+    // Depth wash + translucent body (+ optional surface strokes)
+    expect(ctx.fillRect.mock.calls.length).toBeGreaterThan(64);
+    // First rect is the wet blue depth tint over the full tile.
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 16, 16);
+    // Body uses multiple alphas (not a single flat dim).
+    const bodyAlphas = alphas.filter((a) => a > 0.2 && a < 1);
+    expect(bodyAlphas.length).toBeGreaterThan(8);
+    expect(new Set(bodyAlphas.map((a) => a.toFixed(3))).size).toBeGreaterThan(1);
+    expect(ctx.save).toHaveBeenCalled();
+    expect(ctx.restore).toHaveBeenCalled();
+  });
+
+  it('draws lava with glow, wave-lit body, and ridge/shadow overlays', () => {
+    const ctx = makeCtx();
+    const solid = setOpaqueGrid('#FF004D');
+    const tile = makeTile({
+      category: 'Perigo',
+      name: 'Lava Borbulhante',
+      pixels: solid as unknown as TileDefinition['pixels'],
+    });
+    const tileManager = { getTile: vi.fn(() => tile) };
+    const helper = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(ctx), tileManager);
+    vi.spyOn(helper, 'getEffectTimeMs').mockReturnValue(0);
+
+    helper.drawCustomTile(6, 0, 0, 16);
+
+    // Glow underlay + 64 wave-lit body pixels + crest/trough overlay strokes.
+    expect(ctx.fillRect.mock.calls.length).toBeGreaterThan(65);
+    expect(ctx.save).toHaveBeenCalled();
+    expect(ctx.restore).toHaveBeenCalled();
+
+    // Body colors should be modulated (not only the raw palette red).
+    const fillStyles = (ctx as TestCtx & { fillStyle: string }).fillStyle;
+    expect(typeof fillStyles).toBe('string');
+
+    const field = helper.buildLavaHeightField(8, 8, 0);
+    expect(field).toHaveLength(8);
+    expect(field[0]).toHaveLength(8);
+    // Flowing field is not flat.
+    const flat = field.flat();
+    expect(Math.max(...flat) - Math.min(...flat)).toBeGreaterThan(0.5);
+  });
+
+  it('modulates and mixes colors for wave lighting', () => {
+    const helper = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(makeCtx()), null);
+    expect(helper.parseColor('#29ADFF')).toEqual({ r: 0x29, g: 0xad, b: 0xff });
+    expect(helper.colorLuminance('#FFFFFF')).toBeCloseTo(1, 2);
+    expect(helper.modulateColor('#808080', 2)).toBe('rgb(255,255,255)');
+    expect(helper.mixColors('#000000', '#FFFFFF', 0.5)).toBe('rgb(128,128,128)');
+  });
+
+  it('keeps liquid effect phase stable until explicitly advanced', () => {
+    const helper = new RendererCanvasHelper(document.createElement('canvas'), asCanvasCtx(makeCtx()), null);
+    expect(helper.liquidEffectStep).toBe(0);
+    const t0 = helper.getEffectTimeMs();
+    // Simulated movement redraws must not change the phase.
+    expect(helper.getEffectTimeMs()).toBe(t0);
+    expect(helper.getEffectTimeMs()).toBe(t0);
+
+    helper.advanceLiquidEffectPhase();
+    const t1 = helper.getEffectTimeMs();
+    expect(t1).toBeGreaterThan(t0);
+    expect(helper.liquidEffectStep).toBe(1);
+    // Still stable across repeated reads after a single advance.
+    expect(helper.getEffectTimeMs()).toBe(t1);
+  });
+
 });

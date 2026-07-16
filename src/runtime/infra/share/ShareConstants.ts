@@ -42,9 +42,10 @@ class ShareConstants {
     static get VERSION_33() { return 33; }
     static get VERSION_34() { return 34; }
     static get VERSION_35() { return 35; }
+    static get VERSION_36() { return 36; }
 
     static get VERSION() {
-        return ShareConstants.VERSION_35;
+        return ShareConstants.VERSION_36;
     }
 
     static get LEGACY_VERSION() {
@@ -174,6 +175,12 @@ class ShareConstants {
         return ShareConstants.VERSION_35;
     }
 
+    // Per-tile liquid visual effect (none/water/lava). Payload key '0':
+    //   ShareTextCodec-encoded JSON map of tileId → "water" | "lava" (none omitted).
+    static get TILE_VISUAL_EFFECT_VERSION() {
+        return ShareConstants.VERSION_36;
+    }
+
     static get MATRIX_SIZE() {
         return GameConfig.world.matrixSize;
     }
@@ -290,7 +297,8 @@ class ShareConstants {
                 ShareConstants.VERSION_32,
                 ShareConstants.VERSION_33,
                 ShareConstants.VERSION_34,
-                ShareConstants.VERSION_35
+                ShareConstants.VERSION_35,
+                ShareConstants.VERSION_36
             ]);
         }
         return this._supportedVersions;

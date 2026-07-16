@@ -362,6 +362,13 @@ class EditorManager {
         this.uiController.setHideHud(active);
     }
 
+    setEnableEffects(active: boolean) {
+        this.uiController.setEnableEffects(active);
+        // Ensure every surface that paints tiles (editor map, palette, game canvas) updates now.
+        this.renderAll();
+        this.gameEngine.draw();
+    }
+
     setSpriteOutline(active: boolean) {
         this.uiController.setSpriteOutline(active);
     }

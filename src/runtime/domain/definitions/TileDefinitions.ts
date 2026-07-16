@@ -37,6 +37,12 @@ class TileDefinitions {
         const layoutList = Array.isArray(layouts) ? layouts.filter(Boolean) : [layouts];
         const frames = (layoutList.length ? layoutList : [this.createEmptyLayout()])
             .map((layout) => this.toPixels(layout as (number | null)[][], palette));
+        // Default liquid effects for classic water/lava presets (overridable in the editor).
+        let visualEffect: TileDefinitionData['visualEffect'];
+        const cat = (category || '').toLowerCase();
+        if (cat === 'agua') visualEffect = 'water';
+        else if (cat === 'perigo') visualEffect = 'lava';
+
         const data: TileDefinitionData = {
             id,
             name,
@@ -45,7 +51,8 @@ class TileDefinitions {
             frames: frames as TileFrame[],
             collision,
             category,
-            layouts: layoutList as (number | null)[][][]
+            layouts: layoutList as (number | null)[][][],
+            visualEffect
         };
         return new Tile(data);
     }

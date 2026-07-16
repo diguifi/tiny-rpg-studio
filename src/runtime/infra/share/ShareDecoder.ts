@@ -431,6 +431,11 @@ class ShareDecoder {
             ? normalizeBackgroundMusicVolume(parseInt(payload['2'], 36))
             : DEFAULT_BACKGROUND_MUSIC_VOLUME;
         const hideHud = version >= ShareConstants.HIDE_HUD_VERSION && payload.H === '1';
+        // Global liquid effects (VERSION_36+): default on; "~0" disables.
+        const enableEffects =
+            version < ShareConstants.TILE_VISUAL_EFFECT_VERSION
+                ? true
+                : payload['~'] !== '0';
         // Outline (VERSION_35+): default off + color 1. See ShareEncoder for formats.
         let spriteOutline = false;
         let spriteOutlineColor = 1;
@@ -609,12 +614,19 @@ class ShareDecoder {
         // Skill Customizations
         const skillCustomizations = payload.C ? this.decodeSkillCustomizations(payload.C) : undefined;
 
+        // Per-tile liquid visual effects (VERSION_36+), payload key '0'
+        const tileVisualEffects =
+            version >= ShareConstants.TILE_VISUAL_EFFECT_VERSION && payload['0']
+                ? this.decodeTileVisualEffects(payload['0'])
+                : undefined;
+
         const result: Record<string, unknown> = {
             title,
             author,
             backgroundMusicVideoId,
             backgroundMusicVolume,
             hideHud,
+            enableEffects,
             spriteOutline,
             spriteOutlineColor,
             disableSkills,
@@ -634,6 +646,10 @@ class ShareDecoder {
                 map: maps[0] || { ground: ShareMatrixCodec.normalizeGround([]), overlay: ShareMatrixCodec.normalizeOverlay([]) }
             }
         };
+
+        if (tileVisualEffects && Object.keys(tileVisualEffects).length > 0) {
+            result.tileVisualEffects = tileVisualEffects;
+        }
 
         if (customPalette) {
             result.customPalette = customPalette;
@@ -671,6 +687,26 @@ class ShareDecoder {
             const json = ShareTextCodec.decodeText(encoded, '');
             const parsed = JSON.parse(json) as unknown;
             return SkillDefinitions.sanitizeCustomizationMap(parsed);
+        } catch {
+            return undefined;
+        }
+    }
+
+    /** Decode tileId → water|lava|none map from VERSION_36 payload key '0'. */
+    private static decodeTileVisualEffects(
+        encoded: string
+    ): Record<string, 'water' | 'lava' | 'none'> | undefined {
+        try {
+            const json = ShareTextCodec.decodeText(encoded, '');
+            const parsed = JSON.parse(json) as unknown;
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+            const map: Record<string, 'water' | 'lava' | 'none'> = {};
+            for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+                if (value === 'water' || value === 'lava' || value === 'none') {
+                    map[String(key)] = value;
+                }
+            }
+            return Object.keys(map).length > 0 ? map : undefined;
         } catch {
             return undefined;
         }

@@ -42,6 +42,7 @@ type GameData = {
   title?: string;
   author?: string;
   hideHud?: boolean;
+  enableEffects?: boolean;
   spriteOutline?: boolean;
   spriteOutlineColor?: number;
   disableSkills?: boolean;
@@ -376,7 +377,14 @@ export class GameEngine {
     this.gameState.importGameData(data);
     this.npcManager.ensureDefaultNPCs();
     this.tileManager.ensureDefaultTiles();
-    const game = this.gameState.getGame();
+    const game = this.gameState.getGame() as ReturnType<GameEngine['gameState']['getGame']> & {
+      tileVisualEffects?: Record<string, 'water' | 'lava' | 'none'>;
+    };
+    // VERSION_36: apply share-encoded liquid effects after presets exist.
+    if (game.tileVisualEffects) {
+      this.tileManager.applyTileVisualEffects(game.tileVisualEffects);
+      delete game.tileVisualEffects;
+    }
     if (Array.isArray(game.customPalette) && game.customPalette.length === 16) {
       this.setCustomPalette(game.customPalette);
     } else {
@@ -432,6 +440,12 @@ export class GameEngine {
   setHideHud(active = false): void {
     const game = this.gameState.getGame();
     game.hideHud = Boolean(active);
+    this.draw();
+  }
+
+  setEnableEffects(active = true): void {
+    const game = this.gameState.getGame();
+    game.enableEffects = active !== false;
     this.draw();
   }
 

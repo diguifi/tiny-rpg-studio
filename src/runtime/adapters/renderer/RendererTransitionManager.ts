@@ -250,6 +250,11 @@ class RendererTransitionManager extends RendererModuleBase {
         if (!pixels) return;
         const step = Math.max(1, Math.floor(size / 8));
         const helper = this.transitionCanvasHelper as CanvasHelperApi;
+        const tile = this.transitionTileManager.getTile?.(tileId) ?? null;
+        if (helper.drawTilePixels) {
+            helper.drawTilePixels(ctx, tile, pixels, px, py, size);
+            return;
+        }
         if (helper.drawPixelGrid) {
             helper.drawPixelGrid(ctx, pixels, px, py, step);
             return;
@@ -294,6 +299,7 @@ type TransitionGameState = {
 type TransitionTileManagerApi = {
     getTileMap: (roomIndex: number) => { ground?: (string | number | null)[][]; overlay?: (string | number | null)[][] } | null;
     getTilePixels: (tileId: string | number) => (string | null)[][] | null;
+    getTile?: (tileId: string | number) => { category?: string; name?: string } | null;
 };
 
 type PaletteManagerApi = {
@@ -319,5 +325,13 @@ type CanvasHelperApi = {
         x: number,
         y: number,
         step: number
+    ) => void;
+    drawTilePixels?: (
+        ctx: CanvasRenderingContext2D,
+        tile: { category?: string; name?: string } | null,
+        pixels: (string | null)[][],
+        px: number,
+        py: number,
+        size: number
     ) => void;
 };

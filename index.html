@@ -429,6 +429,10 @@
                                                 <span data-text-key="project.disableSkills"></span>
                                             </label>
                                         </div>
+                                        <label class="project-test__field project-test__checkbox project-appearance__checkbox">
+                                            <input type="checkbox" id="project-show-variable-links" checked>
+                                            <span data-text-key="project.showVariableLinks"></span>
+                                        </label>
                                     </div>
                                     </div>
 
@@ -513,16 +517,16 @@
                                             </div>
                                         </div>
                                         <label class="project-test__field project-test__checkbox project-appearance__checkbox">
+                                            <input type="checkbox" id="project-enable-effects" checked>
+                                            <span data-text-key="project.enableEffects"></span>
+                                        </label>
+                                        <label class="project-test__field project-test__checkbox project-appearance__checkbox">
                                             <input type="checkbox" id="project-hide-hud">
                                             <span data-text-key="project.hideHud"></span>
                                         </label>
                                         <label class="project-test__field project-test__checkbox project-appearance__checkbox">
                                             <input type="checkbox" id="project-disable-pixel-font">
                                             <span data-text-key="project.disablePixelFont"></span>
-                                        </label>
-                                        <label class="project-test__field project-test__checkbox project-appearance__checkbox">
-                                            <input type="checkbox" id="project-show-variable-links" checked>
-                                            <span data-text-key="project.showVariableLinks"></span>
                                         </label>
                                     </div>
                                     </div>
@@ -810,6 +814,14 @@
                 <canvas id="pae-canvas" width="256" height="256"></canvas>
             </div>
             <div class="pae-palette" id="pae-palette"></div>
+            <div class="pae-tile-effect-row" id="pae-tile-effect-row" hidden>
+                <label class="pae-tile-effect-label" for="pae-tile-effect" data-text-key="pixelArtEditor.visualEffect">Efeito visual</label>
+                <select id="pae-tile-effect" class="pae-tile-effect-select" data-aria-label-key="pixelArtEditor.visualEffect">
+                    <option value="none" data-text-key="pixelArtEditor.visualEffect.none">Nenhum</option>
+                    <option value="water" data-text-key="pixelArtEditor.visualEffect.water">Água</option>
+                    <option value="lava" data-text-key="pixelArtEditor.visualEffect.lava">Lava</option>
+                </select>
+            </div>
             <div class="pae-tools">
                 <button type="button" class="pae-tool active" data-tool="paint" id="pae-tool-paint" data-text-key="pixelArtEditor.paint">Pintar</button>
                 <button type="button" class="pae-tool" data-tool="erase" id="pae-tool-erase" data-text-key="pixelArtEditor.erase">Apagar</button>

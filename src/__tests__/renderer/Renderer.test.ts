@@ -35,6 +35,9 @@ vi.mock('../../runtime/adapters/renderer/RendererCanvasHelper', () => ({
     getTilePixelSize() {
       return 8;
     }
+    advanceLiquidEffectPhase() {
+      return 0;
+    }
     drawCustomTile() {}
     drawSprite() {}
     drawTileOnCanvas() {}

@@ -1,4 +1,12 @@
-import type { GameStateApi, TileDefinition, TileFrame, TileId, TileMap, TileMapLayer } from '../domain/definitions/tileTypes';
+import type {
+  GameStateApi,
+  TileDefinition,
+  TileFrame,
+  TileId,
+  TileMap,
+  TileMapLayer,
+  TileVisualEffectKind,
+} from '../domain/definitions/tileTypes';
 import { TILE_PRESETS_SOURCE } from '../domain/definitions/tilePresets';
 import { TileDefinitions } from '../domain/definitions/TileDefinitions';
 import { CustomSpriteLookup } from '../domain/sprites/CustomSpriteLookup';
@@ -133,16 +141,63 @@ class TileManager {
     };
   }
 
-  updateTile(tileId: TileId, data: Partial<TileDefinition>): void {
-    const tile = this.getTile(tileId);
+  /**
+   * Apply VERSION_36 share map onto current tileset tiles.
+   * IDs not listed keep their existing/default visualEffect.
+   * Listed IDs get water/lava; to clear an effect the map simply omits it and
+   * the caller may pass resetUnknown=true to force unlisted tiles to none —
+   * we only set listed ones so presets keep water/lava defaults when map is sparse.
+   */
+  applyTileVisualEffects(effects: Record<string, TileVisualEffectKind> | null | undefined): void {
+    if (!effects || typeof effects !== 'object') return;
+    const tiles = this.gameState.game.tileset.tiles;
+    if (!Array.isArray(tiles)) return;
+    for (const tile of tiles) {
+      if (tile.id === undefined) continue;
+      const key = String(tile.id);
+      if (!Object.prototype.hasOwnProperty.call(effects, key)) continue;
+      tile.visualEffect = effects[key];
+    }
+  }
+
+  setTileVisualEffect(tileId: TileId, effect: TileVisualEffectKind): void {
+    const tile = this.gameState.game.tileset.tiles.find((t) => t.id === tileId);
     if (!tile) return;
-    Object.assign(tile, data);
+    tile.visualEffect = effect === 'water' || effect === 'lava' ? effect : 'none';
+  }
+
+  getTileVisualEffect(tileId: TileId): TileVisualEffectKind {
+    const tile = this.getTile(tileId);
+    if (!tile) return 'none';
+    if (tile.visualEffect === 'water' || tile.visualEffect === 'lava' || tile.visualEffect === 'none') {
+      return tile.visualEffect;
+    }
+    // Legacy heuristics when property is unset (pre-VERSION_36 games).
+    const normalize = (value = '') =>
+      value
+        .toString()
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    const category = normalize(tile.category || '');
+    const name = normalize(tile.name || '');
+    if (category === 'agua' || name.includes('agua') || name.includes('water')) return 'water';
+    if (category === 'perigo' || name.includes('lava')) return 'lava';
+    return 'none';
+  }
+
+  updateTile(tileId: TileId, data: Partial<TileDefinition>): void {
+    // Mutate the tileset entry directly (getTile may return a spread copy with custom frames).
+    const stored = this.gameState.game.tileset.tiles.find((t) => t.id === tileId);
+    if (!stored) return;
+    Object.assign(stored, data);
     if (Array.isArray(data.frames)) {
-      tile.pixels = data.frames[0];
-      tile.animated = data.frames.length > 1;
+      stored.pixels = data.frames[0];
+      stored.animated = data.frames.length > 1;
     } else if (Array.isArray(data.pixels)) {
-      tile.frames = undefined;
-      tile.animated = false;
+      stored.frames = undefined;
+      stored.animated = false;
     }
     this.refreshAnimationMetadata();
   }

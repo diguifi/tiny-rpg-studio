@@ -31,6 +31,7 @@ type ShareGameData = {
     backgroundMusicVideoId?: unknown;
     backgroundMusicVolume?: unknown;
     hideHud?: unknown;
+    enableEffects?: unknown;
     spriteOutline?: unknown;
     spriteOutlineColor?: unknown;
     disableSkills?: unknown;
@@ -41,7 +42,11 @@ type ShareGameData = {
     objects?: unknown[];
     variables?: unknown[];
     rooms?: unknown[];
-    tileset?: unknown;
+    tileset?: {
+        tiles?: Array<{ id?: string | number; visualEffect?: string }>;
+        maps?: unknown;
+        map?: unknown;
+    } | unknown;
     world?: unknown;
     customPalette?: string[];
     customSprites?: CustomSpriteEntryLike[];
@@ -64,6 +69,25 @@ class ShareEncoder {
         const left = values[index] & 0x0f;
         const right = index + 1 < values.length ? (values[index + 1] & 0x0f) : 0;
         return (left << 4) | right;
+    }
+
+    /**
+     * Build tileId → effect map for share payload.
+     * Includes water/lava/none when explicitly set so "none" can override preset liquids.
+     */
+    static collectTileVisualEffects(
+        tiles: Array<{ id?: string | number; visualEffect?: string }> | undefined
+    ): Record<string, 'water' | 'lava' | 'none'> {
+        const map: Record<string, 'water' | 'lava' | 'none'> = {};
+        if (!Array.isArray(tiles)) return map;
+        for (const tile of tiles) {
+            if (tile.id === undefined) continue;
+            const effect = tile.visualEffect;
+            if (effect === 'water' || effect === 'lava' || effect === 'none') {
+                map[String(tile.id)] = effect;
+            }
+        }
+        return map;
     }
 
     private static resolveBaseFrame(entry: CustomSpriteEntryLike): (number | null)[][] | null {
@@ -572,6 +596,11 @@ class ShareEncoder {
         if (gameData?.hideHud) {
             parts.push('H1');
         }
+        // Global liquid effects master switch (VERSION_36+), payload key '~':
+        //   missing → enabled (default); "~0" → disabled.
+        if (gameData?.enableEffects === false) {
+            parts.push('~0');
+        }
         // Outline payload key '1' (VERSION_35+), default off + color 1:
         //   missing  → off, color 1
         //   "1"      → on, color 1
@@ -589,6 +618,21 @@ class ShareEncoder {
                 parts.push('1' + '1' + colorPart);
             } else if (colorPart) {
                 parts.push('1' + '0' + colorPart);
+            }
+        }
+
+        // Per-tile liquid visual effects (VERSION_36+), payload key '0':
+        // ShareTextCodec JSON map of tileId → "water" | "lava" | "none".
+        {
+            const tiles =
+                gameData?.tileset &&
+                typeof gameData.tileset === 'object' &&
+                Array.isArray((gameData.tileset as { tiles?: unknown }).tiles)
+                    ? (gameData.tileset as { tiles: Array<{ id?: string | number; visualEffect?: string }> }).tiles
+                    : undefined;
+            const effectMap = ShareEncoder.collectTileVisualEffects(tiles);
+            if (Object.keys(effectMap).length > 0) {
+                parts.push('0' + ShareTextCodec.encodeText(JSON.stringify(effectMap)));
             }
         }
         if (gameData?.disableSkills) {

@@ -1,4 +1,13 @@
 import type { TileDefinition } from '../../domain/definitions/tileTypes';
+import {
+    buildLavaHeightField,
+    colorLuminance,
+    mixColors,
+    modulateColor,
+    parseColor,
+    RendererTileEffects,
+    type TileVisualEffectId,
+} from './tileEffects/RendererTileEffects';
 
 type TilePixels = (string | null)[][];
 
@@ -12,8 +21,16 @@ type PaletteApi = {
 };
 
 type GameStateApi = {
-    getGame?: () => { spriteOutline?: boolean; spriteOutlineColor?: number };
+    getGame?: () => {
+        spriteOutline?: boolean;
+        spriteOutlineColor?: number;
+        /** Global master switch for water/lava canvas effects (default true). */
+        enableEffects?: boolean;
+    };
 } | null;
+
+/** @deprecated Prefer TileVisualEffectId from tileEffects module. */
+type TileVisualEffect = TileVisualEffectId;
 
 /** Fallback when no palette is wired (PICO-8 dark blue / palette index 1). */
 const DEFAULT_SPRITE_OUTLINE_COLOR = '#1D2B53';
@@ -29,12 +46,19 @@ const OUTLINE_DIRS: ReadonlyArray<readonly [number, number]> = [
     [0, 1],
 ];
 
+/**
+ * Canvas drawing helper for tiles and sprites.
+ * Optional liquid tile effects live in `tileEffects/` and are dispatched via
+ * {@link RendererTileEffects} — keep effect-specific code out of this file.
+ */
 class RendererCanvasHelper {
     canvas: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;
     tileManager: TileManagerApi | null;
     paletteManager: PaletteApi | null;
     gameState: GameStateApi;
+    /** Isolated tile-effect engine (phase clock + water/lava painters). */
+    readonly tileEffects = new RendererTileEffects();
 
     constructor(
         canvas: HTMLCanvasElement,
@@ -52,6 +76,25 @@ class RendererCanvasHelper {
 
     getTilePixelSize() {
         return Math.floor(this.canvas.width / 8);
+    }
+
+    /** @see RendererTileEffects.advancePhase */
+    advanceLiquidEffectPhase(): number {
+        return this.tileEffects.advancePhase();
+    }
+
+    /** @see RendererTileEffects.getTimeMs */
+    getEffectTimeMs(): number {
+        return this.tileEffects.getTimeMs();
+    }
+
+    /** Discrete phase counter (tests / debugging). */
+    get liquidEffectStep(): number {
+        return this.tileEffects.phaseStep;
+    }
+
+    set liquidEffectStep(value: number) {
+        this.tileEffects.phaseStep = value;
     }
 
     /** Palette index for outline (game setting, default 1). */
@@ -81,6 +124,28 @@ class RendererCanvasHelper {
     isEmptyPixel(col: string | null | undefined): boolean {
         return !col || col === 'transparent';
     }
+
+    private readEnableEffectsFlag(): boolean | undefined {
+        if (!this.gameState?.getGame) return undefined;
+        return this.gameState.getGame().enableEffects;
+    }
+
+    isTileEffectsEnabled(): boolean {
+        return this.tileEffects.isEnabled(this.readEnableEffectsFlag());
+    }
+
+    getTileVisualEffect(
+        tile: { category?: string; name?: string; visualEffect?: string } | null | undefined
+    ): TileVisualEffect {
+        return this.tileEffects.resolveEffect(tile, this.readEnableEffectsFlag());
+    }
+
+    // Re-exported color helpers (used by tests / callers that previously lived here).
+    parseColor = parseColor;
+    colorLuminance = colorLuminance;
+    modulateColor = modulateColor;
+    mixColors = mixColors;
+    buildLavaHeightField = buildLavaHeightField;
 
     /**
      * Draw an 8x8-style pixel matrix with optional in-bounds silhouette outline.
@@ -129,6 +194,29 @@ class RendererCanvasHelper {
     }
 
     /**
+     * Paint tile pixels, optionally with a registered canvas effect (water/lava/…).
+     */
+    drawTilePixels(
+        ctx: CanvasRenderingContext2D,
+        tile: { category?: string; name?: string; visualEffect?: string } | null | undefined,
+        pixels: (string | null)[][],
+        px: number,
+        py: number,
+        size: number
+    ) {
+        this.tileEffects.paintTile(
+            this,
+            ctx,
+            tile,
+            pixels,
+            px,
+            py,
+            size,
+            this.readEnableEffectsFlag()
+        );
+    }
+
+    /**
      * Draw a pixel sprite with optional 1px outline (palette color 0).
      * Outline is clamped to the sprite grid so it never leaks into neighbors.
      */
@@ -153,8 +241,7 @@ class RendererCanvasHelper {
         const pixels = this.resolveTilePixels(tile, frameOverride);
         if (!pixels) return;
 
-        const step = Math.max(1, Math.floor(size / 8));
-        this.drawPixelGrid(this.ctx, pixels, px, py, step);
+        this.drawTilePixels(this.ctx, tile, pixels, px, py, size);
     }
 
     drawTileOnCanvas(canvas: HTMLCanvasElement, tile: TileDefinition | null, frameOverride: number | null = null) {
@@ -165,8 +252,7 @@ class RendererCanvasHelper {
         const pixels = this.resolveTilePixels(tile, frameOverride);
         if (!pixels) return;
 
-        const step = Math.max(1, Math.floor(canvas.width / 8));
-        this.drawPixelGrid(ctx, pixels, 0, 0, step);
+        this.drawTilePixels(ctx, tile, pixels, 0, 0, canvas.width);
     }
 
     drawTilePreview(
@@ -183,9 +269,9 @@ class RendererCanvasHelper {
         const pixels = this.resolveTilePixels(tile, frameOverride);
         if (!pixels) return;
 
-        const step = Math.max(1, Math.floor(size / 8));
-        this.drawPixelGrid(ctx, pixels, px, py, step);
+        this.drawTilePixels(ctx, tile, pixels, px, py, size);
     }
 }
 
 export { RendererCanvasHelper };
+export type { TileVisualEffect };

@@ -4811,6 +4811,34 @@ body.game-mode .tab-button.active {
     border-color: #fff;
 }
 
+.pae-tile-effect-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 2px;
+    flex-wrap: wrap;
+}
+
+.pae-tile-effect-row[hidden] {
+    display: none;
+}
+
+.pae-tile-effect-label {
+    font-size: 0.85em;
+    opacity: 0.9;
+}
+
+.pae-tile-effect-select {
+    flex: 1;
+    min-width: 8rem;
+    max-width: 14rem;
+    padding: 4px 8px;
+    border: 2px solid var(--border, #333);
+    background: var(--panel, #1a1c2c);
+    color: inherit;
+    cursor: pointer;
+}
+
 .pae-tools {
     display: flex;
     gap: 4px;

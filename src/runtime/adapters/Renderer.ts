@@ -484,6 +484,8 @@ class Renderer {
         const manager = this.tileManager;
         const totalFrames = manager.getAnimationFrameCount();
         if (totalFrames <= 1) return;
+        // Advance liquid phase on the animation clock only (not on movement redraws).
+        this.canvasHelper.advanceLiquidEffectPhase();
         const nextIndex = manager.advanceAnimationFrame();
         this.draw();
         try {
