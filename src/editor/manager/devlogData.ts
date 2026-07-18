@@ -23,6 +23,13 @@ export type DevlogEntry = {
 
 export const DEVLOG_ENTRIES: DevlogEntry[] = [
   {
+    id: '2026-07-18-smoother-movement-room-transitions',
+    date: '2026-07-18',
+    title: 'Smoother movement and room transitions',
+    description:
+      'Walking now feels smooth and responsive when you hold a direction on the keyboard or touch controls, and your character keeps moving naturally between rooms. Room changes are cleaner too, without the HUD briefly flashing during the transition (annoying bug).',
+  },
+  {
     id: '2026-07-16-tile-liquid-effects',
     date: '2026-07-16',
     title: 'Water and lava tile effects',
