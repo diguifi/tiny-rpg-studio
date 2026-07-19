@@ -64,6 +64,105 @@ function setOpaqueGrid(color: string): string[][] {
 }
 
 describe('RendererCanvasHelper', () => {
+  it('resolves valid custom effects and makes dangling custom IDs explicit none', () => {
+    const gameState = {
+      getGame: () => ({
+        enableEffects: true,
+        customTileEffects: [{ id: 'custom:0' as const, name: 'Glow', baseEffectIds: ['glow' as const] }],
+      }),
+    };
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'), asCanvasCtx(makeCtx()), null, null, gameState,
+    );
+    expect(helper.getTileVisualEffect({ name: 'Grass', visualEffect: 'custom:0' })).toBe('custom:0');
+    expect(helper.getTileVisualEffect({ name: 'Water', category: 'Agua', visualEffect: 'custom:missing' })).toBe('none');
+    expect(helper.getTileVisualEffect({ name: 'Water', category: 'Agua', visualEffect: 'custom:INVALID' })).toBe('none');
+  });
+
+  it('uses the same definition and draft color path for saved tiles and modal previews', () => {
+    const savedCtx = makeCtx();
+    const savedShadows: string[] = [];
+    Object.defineProperty(savedCtx, 'shadowColor', {
+      configurable: true,
+      get: () => savedShadows.at(-1) ?? '',
+      set: (value: string) => savedShadows.push(value),
+    });
+    const gameState = {
+      getGame: () => ({
+        enableEffects: true,
+        customTileEffects: [{
+          id: 'custom:0' as const,
+          name: 'Green',
+          baseEffectIds: ['glow' as const],
+          color: '#00FF7F' as const,
+        }],
+      }),
+    };
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'), asCanvasCtx(savedCtx), null, null, gameState,
+    );
+    helper.drawTilePixels(
+      asCanvasCtx(savedCtx),
+      makeTile({ visualEffect: 'custom:0' }),
+      setOpaqueGrid('#ffffff'),
+      0,
+      0,
+      64,
+    );
+    expect(savedShadows).toContain('rgba(0, 255, 127, 0.4)');
+
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.width = 192;
+    previewCanvas.height = 192;
+    const previewCtx = makeCtx();
+    const previewShadows: string[] = [];
+    Object.defineProperty(previewCtx, 'shadowColor', {
+      configurable: true,
+      get: () => previewShadows.at(-1) ?? '',
+      set: (value: string) => previewShadows.push(value),
+    });
+    vi.spyOn(previewCanvas, 'getContext').mockReturnValue(asCanvasCtx(previewCtx));
+    helper.drawCustomTileEffectPreview(
+      previewCanvas,
+      makeTile({ pixels: setOpaqueGrid('#ffffff') }),
+      ['glow'],
+      0,
+      0,
+      '#00FF7F',
+    );
+    expect(previewShadows).toContain('rgba(0, 255, 127, 0.4)');
+  });
+
+  it('keeps saved uncolored custom definitions on legacy painter colors', () => {
+    const ctx = makeCtx();
+    const shadows: string[] = [];
+    Object.defineProperty(ctx, 'shadowColor', {
+      configurable: true,
+      get: () => shadows.at(-1) ?? '',
+      set: (value: string) => shadows.push(value),
+    });
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'),
+      asCanvasCtx(ctx),
+      null,
+      null,
+      {
+        getGame: () => ({
+          enableEffects: true,
+          customTileEffects: [{ id: 'custom:0' as const, name: 'Legacy', baseEffectIds: ['glow' as const] }],
+        }),
+      },
+    );
+    helper.drawTilePixels(
+      asCanvasCtx(ctx),
+      makeTile({ visualEffect: 'custom:0' }),
+      setOpaqueGrid('#ffffff'),
+      0,
+      0,
+      64,
+    );
+    expect(shadows).toContain('rgba(255, 90, 0, 0.4)');
+  });
   it('computes tile pixel size from canvas width', () => {
     const canvas = document.createElement('canvas');
     canvas.width = 80;
@@ -477,6 +576,66 @@ describe('RendererCanvasHelper', () => {
     expect(ctx.fillRect).not.toHaveBeenCalled();
   });
 
+  it('reflects neighboring sprites into every custom directional-reflection tile', () => {
+    const ctx = makeCtx();
+    const customTileEffects = [
+      { id: 'custom:0' as const, name: 'Top', baseEffectIds: ['reflection-top' as const] },
+      { id: 'custom:1' as const, name: 'Bottom', baseEffectIds: ['reflection-bottom' as const] },
+      { id: 'custom:2' as const, name: 'Left', baseEffectIds: ['reflection-left' as const] },
+      { id: 'custom:3' as const, name: 'Right', baseEffectIds: ['reflection-right' as const] },
+    ];
+    const tiles = new Map<string, TileDefinition>([
+      ['top', makeTile({ visualEffect: 'custom:0' })],
+      ['bottom', makeTile({ visualEffect: 'custom:1' })],
+      ['left', makeTile({ visualEffect: 'custom:2' })],
+      ['right', makeTile({ visualEffect: 'custom:3' })],
+      ['plain', makeTile({ visualEffect: 'none' })],
+    ]);
+    const map = {
+      ground: Array.from({ length: 8 }, () => Array<string | number | null>(8).fill(null)),
+      overlay: Array.from({ length: 8 }, () => Array<string | number | null>(8).fill(null)),
+    };
+    map.ground[4][3] = 'top';
+    map.ground[2][3] = 'bottom';
+    map.ground[3][4] = 'left';
+    map.ground[3][2] = 'right';
+    const tileManager = {
+      getTile: vi.fn((id: string | number) => tiles.get(String(id)) ?? null),
+      getTileMap: vi.fn(() => map),
+    };
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    const helper = new RendererCanvasHelper(
+      canvas,
+      asCanvasCtx(ctx),
+      tileManager,
+      null,
+      { getGame: () => ({ customTileEffects }) },
+    );
+    const sprite = [
+      ['#top', '#right'],
+      ['#bottom', '#left'],
+    ];
+
+    helper.drawWaterReflectionForSprite(asCanvasCtx(ctx), sprite, 48, 48, 2, 0, 3, 3);
+
+    expect(ctx.rect).toHaveBeenCalledTimes(4);
+    expect(ctx.rect).toHaveBeenCalledWith(48, 64, 16, 16);
+    expect(ctx.rect).toHaveBeenCalledWith(48, 32, 16, 16);
+    expect(ctx.rect).toHaveBeenCalledWith(64, 48, 16, 16);
+    expect(ctx.rect).toHaveBeenCalledWith(32, 48, 16, 16);
+    expect(ctx.clip).toHaveBeenCalledTimes(4);
+
+    ctx.rect.mockClear();
+    map.ground[2][3] = null;
+    map.ground[3][4] = null;
+    map.ground[3][2] = null;
+    map.overlay[4][3] = 'plain';
+    helper.drawWaterReflectionForSprite(asCanvasCtx(ctx), sprite, 48, 48, 2, 0, 3, 3);
+
+    expect(ctx.rect).not.toHaveBeenCalled();
+  });
+
   it('draws lava with glow, wave-lit body, and ridge/shadow overlays', () => {
     const ctx = makeCtx();
     const solid = setOpaqueGrid('#FF004D');
@@ -500,7 +659,7 @@ describe('RendererCanvasHelper', () => {
     const fillStyles = (ctx as TestCtx & { fillStyle: string }).fillStyle;
     expect(typeof fillStyles).toBe('string');
 
-    const field = helper.buildLavaHeightField(8, 8, 0);
+    const field = helper.buildHeightField(8, 8, 0);
     expect(field).toHaveLength(8);
     expect(field[0]).toHaveLength(8);
     // Flowing field is not flat.

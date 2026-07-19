@@ -1,6 +1,6 @@
 import type { TileDefinition } from '../../domain/definitions/tileTypes';
 import {
-    buildLavaHeightField,
+    buildHeightField,
     colorLuminance,
     mixColors,
     modulateColor,
@@ -8,7 +8,17 @@ import {
     RendererTileEffects,
     type TileVisualEffectId,
 } from './tileEffects/RendererTileEffects';
-import { paintWaterReflection } from './tileEffects/waterEffect';
+import { paintReflectionTop } from './tileEffects/baseEffects/reflectionTopEffect';
+import { paintReflectionBottom } from './tileEffects/baseEffects/reflectionBottomEffect';
+import { paintReflectionLeft } from './tileEffects/baseEffects/reflectionLeftEffect';
+import { paintReflectionRight } from './tileEffects/baseEffects/reflectionRightEffect';
+import {
+    getCustomTileEffect,
+    type BaseTileEffectId,
+    type BuiltInTileVisualEffectKind,
+    type CustomTileEffectColor,
+    type CustomTileEffectDefinition,
+} from '../../domain/definitions/customTileEffects';
 
 type TilePixels = (string | null)[][];
 
@@ -31,6 +41,7 @@ type GameStateApi = {
         spriteOutlineColor?: number;
         /** Global master switch for water/lava canvas effects (default true). */
         enableEffects?: boolean;
+        customTileEffects?: CustomTileEffectDefinition[];
     };
 } | null;
 
@@ -135,6 +146,10 @@ class RendererCanvasHelper {
         return this.gameState.getGame().enableEffects;
     }
 
+    private readCustomTileEffects(): CustomTileEffectDefinition[] | undefined {
+        return this.gameState?.getGame?.().customTileEffects;
+    }
+
     isTileEffectsEnabled(): boolean {
         return this.tileEffects.isEnabled(this.readEnableEffectsFlag());
     }
@@ -142,7 +157,7 @@ class RendererCanvasHelper {
     getTileVisualEffect(
         tile: { category?: string; name?: string; visualEffect?: string } | null | undefined
     ): TileVisualEffect {
-        return this.tileEffects.resolveEffect(tile, this.readEnableEffectsFlag());
+        return this.tileEffects.resolveEffect(tile, this.readEnableEffectsFlag(), this.readCustomTileEffects());
     }
 
     // Re-exported color helpers (used by tests / callers that previously lived here).
@@ -150,7 +165,7 @@ class RendererCanvasHelper {
     colorLuminance = colorLuminance;
     modulateColor = modulateColor;
     mixColors = mixColors;
-    buildLavaHeightField = buildLavaHeightField;
+    buildHeightField = buildHeightField;
 
     /**
      * Draw an 8x8-style pixel matrix with optional in-bounds silhouette outline.
@@ -217,7 +232,37 @@ class RendererCanvasHelper {
             px,
             py,
             size,
-            this.readEnableEffectsFlag()
+            this.readEnableEffectsFlag(),
+            this.readCustomTileEffects()
+        );
+    }
+
+    drawCustomTileEffectPreview(
+        canvas: HTMLCanvasElement,
+        tile: TileDefinition | null,
+        baseEffectIds: readonly BaseTileEffectId[],
+        frameOverride = 0,
+        timeMs = this.tileEffects.getTimeMs(),
+        customColor?: CustomTileEffectColor
+    ): void {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const pixels = this.resolveTilePixels(tile, frameOverride);
+        if (!pixels) return;
+        const size = Math.max(8, Math.floor(Math.min(canvas.width, canvas.height) * 0.6 / 8) * 8);
+        const px = Math.floor((canvas.width - size) / 2);
+        const py = Math.floor((canvas.height - size) / 2);
+        this.tileEffects.paintCustomPreview(
+            this,
+            ctx,
+            pixels,
+            px,
+            py,
+            size,
+            baseEffectIds,
+            timeMs,
+            customColor
         );
     }
 
@@ -229,7 +274,7 @@ class RendererCanvasHelper {
         this.drawPixelGrid(ctx, sprite, px, py, step);
     }
 
-    /** Reflect a world sprite only when the cell immediately below it is water. */
+    /** Reflect a world sprite into adjacent water or directional-reflection tiles. */
     drawWaterReflectionForSprite(
         ctx: CanvasRenderingContext2D,
         sprite: (string | null)[][],
@@ -244,32 +289,57 @@ class RendererCanvasHelper {
         const tileMap = tileManager?.getTileMap?.(roomIndex);
         if (!tileMap || !tileManager) return;
 
-        const waterTileX = Math.round(sourceTileX);
-        const waterTileY = Math.round(sourceTileY) + 1;
-        if (waterTileX < 0 || waterTileY < 0) return;
-
-        const tileIds = [
-            tileMap.overlay[waterTileY]?.[waterTileX],
-            tileMap.ground[waterTileY]?.[waterTileX],
-        ];
-        const hasWater = tileIds.some((tileId) => {
-            if (tileId === null) return false;
-            return this.getTileVisualEffect(tileManager.getTile(tileId)) === 'water';
-        });
-        if (!hasWater) return;
-
+        const tileX = Math.round(sourceTileX);
+        const tileY = Math.round(sourceTileY);
         const size = this.getTilePixelSize();
-        paintWaterReflection(
-            ctx,
-            this,
-            sprite,
-            sourcePx,
-            sourcePy,
-            step,
-            waterTileX * size,
-            waterTileY * size,
-            size
-        );
+        const customTileEffects = this.readCustomTileEffects();
+        const hasEffectAt = (
+            targetX: number,
+            targetY: number,
+            baseEffectId: BaseTileEffectId,
+            builtInId?: Exclude<BuiltInTileVisualEffectKind, 'none'>
+        ): boolean => {
+            if (targetX < 0 || targetY < 0) return false;
+            const tileIds = [
+                tileMap.overlay[targetY]?.[targetX],
+                tileMap.ground[targetY]?.[targetX],
+            ];
+            if (builtInId && tileIds.some((tileId) => {
+                if (tileId === null) return false;
+                return this.getTileVisualEffect(tileManager.getTile(tileId)) === builtInId;
+            })) return true;
+
+            const visibleTileId = tileIds[0] ?? tileIds[1];
+            if (visibleTileId === null) return false;
+            const effectId = this.getTileVisualEffect(tileManager.getTile(visibleTileId));
+            return getCustomTileEffect(customTileEffects, effectId)?.baseEffectIds.includes(baseEffectId)
+                ?? false;
+        };
+
+        if (hasEffectAt(tileX, tileY + 1, 'reflection-top', 'water')) {
+            paintReflectionTop(
+                ctx, this, sprite, sourcePx, sourcePy, step,
+                tileX * size, (tileY + 1) * size, size
+            );
+        }
+        if (hasEffectAt(tileX, tileY - 1, 'reflection-bottom')) {
+            paintReflectionBottom(
+                ctx, this, sprite, sourcePx, sourcePy, step,
+                tileX * size, (tileY - 1) * size, size
+            );
+        }
+        if (hasEffectAt(tileX + 1, tileY, 'reflection-left')) {
+            paintReflectionLeft(
+                ctx, this, sprite, sourcePx, sourcePy, step,
+                (tileX + 1) * size, tileY * size, size
+            );
+        }
+        if (hasEffectAt(tileX - 1, tileY, 'reflection-right')) {
+            paintReflectionRight(
+                ctx, this, sprite, sourcePx, sourcePy, step,
+                (tileX - 1) * size, tileY * size, size
+            );
+        }
     }
 
     resolveTilePixels(tile: TileDefinition | null, frameOverride: number | null = null) {

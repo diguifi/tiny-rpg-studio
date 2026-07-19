@@ -66,7 +66,19 @@ type GameEngineApi = {
     resumeCalls: string[];
     setEditorMode: (active: boolean) => void;
     isEditorModeActive: () => boolean;
-    state: { game: { title: string; backgroundMusicVideoId?: string } };
+    state: {
+      game: {
+        title: string;
+        backgroundMusicVideoId?: string;
+        customTileEffects?: Array<{
+          id: `custom:${string}`;
+          name: string;
+          baseEffectIds: ['glow'];
+          color?: `#${string}`;
+        }>;
+        tileset?: { tiles: Array<{ id: number; visualEffect?: string }> };
+      };
+    };
     playerRoomIndex?: number;
     objectsByRoom: Map<number, unknown[]>;
     enemyVariableResult: boolean;
@@ -122,11 +134,47 @@ type GameEngineApi = {
   backgroundMusicEngine?: StubBackgroundMusicEngine;
   resumeBackgroundMusic: () => void;
   startEnemyLoop: () => void;
+  createCustomTileEffect: (
+    name: string,
+    ids: readonly ['glow'],
+    color?: '#00FF7F',
+  ) => { ok: boolean; definition?: { color?: string } };
+  deleteCustomTileEffect: (id: `custom:${string}`) => boolean;
 };
 
 type GameEngineCtor = new (canvas: HTMLCanvasElement) => GameEngineApi;
 
 describe('GameEngine business rules (legacy)', () => {
+  it('creates custom effects with one normalized definition color', () => {
+    const engine = createEngine();
+    const result = engine.createCustomTileEffect('Green', ['glow'], '#00FF7F');
+    expect(result).toEqual({
+      ok: true,
+      definition: {
+        id: 'custom:0', name: 'Green', baseEffectIds: ['glow'], color: '#00FF7F',
+      },
+    });
+    expect(engine.gameState.state.game.customTileEffects).toEqual([
+      { id: 'custom:0', name: 'Green', baseEffectIds: ['glow'], color: '#00FF7F' },
+    ]);
+  });
+
+  it('deletes custom effects and clears every tile assignment that used them', () => {
+    const engine = createEngine();
+    const game = engine.gameState.state.game;
+    game.customTileEffects = [{ id: 'custom:0', name: 'Mistake', baseEffectIds: ['glow'] }];
+    game.tileset = {
+      tiles: [
+        { id: 0, visualEffect: 'custom:0' },
+        { id: 1, visualEffect: 'water' },
+      ],
+    };
+
+    expect(engine.deleteCustomTileEffect('custom:0')).toBe(true);
+    expect(game.customTileEffects).toBeUndefined();
+    expect(game.tileset.tiles.map((tile) => tile.visualEffect)).toEqual(['none', 'water']);
+    expect(engine.deleteCustomTileEffect('custom:missing')).toBe(false);
+  });
   it('bootstraps subsystems and initializes intro state', () => {
     const engine = createEngine()
 
