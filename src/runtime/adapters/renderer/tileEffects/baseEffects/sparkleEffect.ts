@@ -1,4 +1,4 @@
-import { colorLuminance } from '../colorUtils';
+import { colorLuminance, mixColors } from '../colorUtils';
 import type { TileEffectPaintContext } from '../types';
 
 const SPARKLE_ALPHA = 0.88;
@@ -42,7 +42,7 @@ export function paintSparkle({
 
             ctx.save();
             ctx.globalAlpha = getSparkleAlpha(x, y, width, height, timeMs);
-            ctx.fillStyle = color as string;
+            ctx.fillStyle = mixColors(color as string, '#ffffff', 0.72);
             ctx.fillRect(px + x * step, py + y * step, step, step);
             ctx.restore();
         }

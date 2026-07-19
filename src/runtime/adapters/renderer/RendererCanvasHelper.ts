@@ -9,7 +9,15 @@ import {
     type TileVisualEffectId,
 } from './tileEffects/RendererTileEffects';
 import { paintReflectionTop } from './tileEffects/baseEffects/reflectionTopEffect';
-import type { BaseTileEffectId, CustomTileEffectDefinition } from '../../domain/definitions/customTileEffects';
+import { paintReflectionBottom } from './tileEffects/baseEffects/reflectionBottomEffect';
+import { paintReflectionLeft } from './tileEffects/baseEffects/reflectionLeftEffect';
+import { paintReflectionRight } from './tileEffects/baseEffects/reflectionRightEffect';
+import {
+    getCustomTileEffect,
+    type BaseTileEffectId,
+    type BuiltInTileVisualEffectKind,
+    type CustomTileEffectDefinition,
+} from '../../domain/definitions/customTileEffects';
 
 type TilePixels = (string | null)[][];
 
@@ -254,7 +262,7 @@ class RendererCanvasHelper {
         this.drawPixelGrid(ctx, sprite, px, py, step);
     }
 
-    /** Reflect a world sprite only when the cell immediately below it is water. */
+    /** Reflect a world sprite into adjacent water or directional-reflection tiles. */
     drawWaterReflectionForSprite(
         ctx: CanvasRenderingContext2D,
         sprite: (string | null)[][],
@@ -269,32 +277,54 @@ class RendererCanvasHelper {
         const tileMap = tileManager?.getTileMap?.(roomIndex);
         if (!tileMap || !tileManager) return;
 
-        const waterTileX = Math.round(sourceTileX);
-        const waterTileY = Math.round(sourceTileY) + 1;
-        if (waterTileX < 0 || waterTileY < 0) return;
-
-        const tileIds = [
-            tileMap.overlay[waterTileY]?.[waterTileX],
-            tileMap.ground[waterTileY]?.[waterTileX],
-        ];
-        const hasWater = tileIds.some((tileId) => {
-            if (tileId === null) return false;
-            return this.getTileVisualEffect(tileManager.getTile(tileId)) === 'water';
-        });
-        if (!hasWater) return;
-
+        const tileX = Math.round(sourceTileX);
+        const tileY = Math.round(sourceTileY);
         const size = this.getTilePixelSize();
-        paintReflectionTop(
-            ctx,
-            this,
-            sprite,
-            sourcePx,
-            sourcePy,
-            step,
-            waterTileX * size,
-            waterTileY * size,
-            size
-        );
+        const customTileEffects = this.readCustomTileEffects();
+        const hasEffectAt = (
+            targetX: number,
+            targetY: number,
+            baseEffectId: BaseTileEffectId,
+            builtInId?: Exclude<BuiltInTileVisualEffectKind, 'none'>
+        ): boolean => {
+            if (targetX < 0 || targetY < 0) return false;
+            const tileIds = [
+                tileMap.overlay[targetY]?.[targetX],
+                tileMap.ground[targetY]?.[targetX],
+            ];
+            return tileIds.some((tileId) => {
+                if (tileId === null) return false;
+                const effectId = this.getTileVisualEffect(tileManager.getTile(tileId));
+                if (builtInId && effectId === builtInId) return true;
+                return getCustomTileEffect(customTileEffects, effectId)?.baseEffectIds.includes(baseEffectId)
+                    ?? false;
+            });
+        };
+
+        if (hasEffectAt(tileX, tileY + 1, 'reflection-top', 'water')) {
+            paintReflectionTop(
+                ctx, this, sprite, sourcePx, sourcePy, step,
+                tileX * size, (tileY + 1) * size, size
+            );
+        }
+        if (hasEffectAt(tileX, tileY - 1, 'reflection-bottom')) {
+            paintReflectionBottom(
+                ctx, this, sprite, sourcePx, sourcePy, step,
+                tileX * size, (tileY - 1) * size, size
+            );
+        }
+        if (hasEffectAt(tileX + 1, tileY, 'reflection-left')) {
+            paintReflectionLeft(
+                ctx, this, sprite, sourcePx, sourcePy, step,
+                (tileX + 1) * size, tileY * size, size
+            );
+        }
+        if (hasEffectAt(tileX - 1, tileY, 'reflection-right')) {
+            paintReflectionRight(
+                ctx, this, sprite, sourcePx, sourcePy, step,
+                (tileX - 1) * size, tileY * size, size
+            );
+        }
     }
 
     resolveTilePixels(tile: TileDefinition | null, frameOverride: number | null = null) {

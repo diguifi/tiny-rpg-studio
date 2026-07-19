@@ -1,4 +1,4 @@
-import { colorLuminance } from '../colorUtils';
+import { colorLuminance, mixColors } from '../colorUtils';
 import type { TileEffectPaintContext } from '../types';
 
 /** Paint a slow, low-amplitude translucent wave. */
@@ -23,10 +23,11 @@ export function paintCalmWave({
 
             const luma = colorLuminance(color as string);
             const baseAlpha = 0.36 + (0.6 - 0.36) * luma;
-            const wave = 1 + 0.025 * Math.sin(x * 0.55 + y * 0.25 + time * Math.PI * 2);
+            const wave = Math.sin(x * 0.55 + y * 0.25 + time * Math.PI * 2);
+            const waveColor = wave >= 0 ? '#d7f4ff' : '#174c78';
             ctx.save();
-            ctx.globalAlpha = Math.max(0.16, Math.min(0.95, baseAlpha * wave));
-            ctx.fillStyle = color as string;
+            ctx.globalAlpha = Math.max(0.16, Math.min(0.95, baseAlpha * (0.94 + wave * 0.06)));
+            ctx.fillStyle = mixColors(color as string, waveColor, 0.1 + Math.abs(wave) * 0.08);
             ctx.fillRect(px + x * step, py + y * step, step, step);
             ctx.restore();
         }

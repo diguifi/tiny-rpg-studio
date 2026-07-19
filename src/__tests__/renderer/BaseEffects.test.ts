@@ -12,6 +12,7 @@ import { paintReflectionLeft } from '../../runtime/adapters/renderer/tileEffects
 import { paintReflectionRight } from '../../runtime/adapters/renderer/tileEffects/baseEffects/reflectionRightEffect';
 import { paintSharpRidge } from '../../runtime/adapters/renderer/tileEffects/baseEffects/sharpRidgeEffect';
 import { paintSoftGlow } from '../../runtime/adapters/renderer/tileEffects/baseEffects/softGlowEffect';
+import { paintTranslucentWave } from '../../runtime/adapters/renderer/tileEffects/baseEffects/translucentWaveEffect';
 import type {
   TileEffectHost,
   TileEffectPaintContext,
@@ -68,7 +69,7 @@ function makePaintContext(
 }
 
 describe('standalone base effects', () => {
-  it('reflects a sprite upward across a target tile bottom edge', () => {
+  it('reflects a sprite upward across a target tile bottom edge without flipping its rows', () => {
     const ctx = makeCanvasContext();
     const host = makeHost();
     const sprite = [['#top'], ['#bottom']];
@@ -78,7 +79,7 @@ describe('standalone base effects', () => {
     expect(ctx.rect).toHaveBeenCalledWith(12, 32, 16, 16);
     expect(host.drawPixelGrid).toHaveBeenCalledWith(
       ctx,
-      [['#bottom'], ['#top']],
+      [['#top'], ['#bottom']],
       12,
       44,
       2
@@ -170,6 +171,24 @@ describe('standalone base effects', () => {
 
     expect(ctx.fillRect).toHaveBeenCalledTimes(8);
     expect(alphas).not.toEqual(calmAlphas);
+  });
+
+  it('makes every wave pass visibly recolor an already-painted tile body', () => {
+    for (const painter of [paintCalmWave, paintChoppyWave, paintTranslucentWave]) {
+      const ctx = makeCanvasContext();
+      const fillStyles: string[] = [];
+      Object.defineProperty(ctx, 'fillStyle', {
+        configurable: true,
+        get: () => fillStyles.at(-1) ?? '',
+        set: (value: string) => fillStyles.push(value),
+      });
+
+      painter(makePaintContext(ctx, [['#29ADFF']]));
+
+      expect(ctx.fillRect).toHaveBeenCalledOnce();
+      expect(fillStyles).toHaveLength(1);
+      expect(fillStyles[0]).not.toBe('#29ADFF');
+    }
   });
 
   it('provides independent gentle and sharp ridge passes', () => {

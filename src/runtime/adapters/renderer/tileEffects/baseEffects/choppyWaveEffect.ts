@@ -1,4 +1,4 @@
-import { colorLuminance } from '../colorUtils';
+import { colorLuminance, mixColors } from '../colorUtils';
 import type { TileEffectPaintContext } from '../types';
 
 /** Paint a fast translucent wave with strong alpha variation. */
@@ -23,10 +23,11 @@ export function paintChoppyWave({
 
             const luma = colorLuminance(color as string);
             const baseAlpha = 0.28 + (0.68 - 0.28) * luma;
-            const wave = 1 + 0.12 * Math.sin(x * 1.45 + y * 0.8 + time * Math.PI * 2);
+            const wave = Math.sin(x * 1.45 + y * 0.8 + time * Math.PI * 2);
+            const waveColor = wave >= 0 ? '#effcff' : '#0b315f';
             ctx.save();
-            ctx.globalAlpha = Math.max(0.16, Math.min(0.95, baseAlpha * wave));
-            ctx.fillStyle = color as string;
+            ctx.globalAlpha = Math.max(0.16, Math.min(0.95, baseAlpha * (0.78 + wave * 0.22)));
+            ctx.fillStyle = mixColors(color as string, waveColor, 0.18 + Math.abs(wave) * 0.24);
             ctx.fillRect(px + x * step, py + y * step, step, step);
             ctx.restore();
         }

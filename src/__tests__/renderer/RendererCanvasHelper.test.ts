@@ -491,6 +491,56 @@ describe('RendererCanvasHelper', () => {
     expect(ctx.fillRect).not.toHaveBeenCalled();
   });
 
+  it('reflects neighboring sprites into every custom directional-reflection tile', () => {
+    const ctx = makeCtx();
+    const customTileEffects = [
+      { id: 'custom:0' as const, name: 'Top', baseEffectIds: ['reflection-top' as const] },
+      { id: 'custom:1' as const, name: 'Bottom', baseEffectIds: ['reflection-bottom' as const] },
+      { id: 'custom:2' as const, name: 'Left', baseEffectIds: ['reflection-left' as const] },
+      { id: 'custom:3' as const, name: 'Right', baseEffectIds: ['reflection-right' as const] },
+    ];
+    const tiles = new Map<string, TileDefinition>([
+      ['top', makeTile({ visualEffect: 'custom:0' })],
+      ['bottom', makeTile({ visualEffect: 'custom:1' })],
+      ['left', makeTile({ visualEffect: 'custom:2' })],
+      ['right', makeTile({ visualEffect: 'custom:3' })],
+    ]);
+    const map = {
+      ground: Array.from({ length: 8 }, () => Array<string | number | null>(8).fill(null)),
+      overlay: Array.from({ length: 8 }, () => Array<string | number | null>(8).fill(null)),
+    };
+    map.ground[4][3] = 'top';
+    map.ground[2][3] = 'bottom';
+    map.ground[3][4] = 'left';
+    map.ground[3][2] = 'right';
+    const tileManager = {
+      getTile: vi.fn((id: string | number) => tiles.get(String(id)) ?? null),
+      getTileMap: vi.fn(() => map),
+    };
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    const helper = new RendererCanvasHelper(
+      canvas,
+      asCanvasCtx(ctx),
+      tileManager,
+      null,
+      { getGame: () => ({ customTileEffects }) },
+    );
+    const sprite = [
+      ['#top', '#right'],
+      ['#bottom', '#left'],
+    ];
+
+    helper.drawWaterReflectionForSprite(asCanvasCtx(ctx), sprite, 48, 48, 2, 0, 3, 3);
+
+    expect(ctx.rect).toHaveBeenCalledTimes(4);
+    expect(ctx.rect).toHaveBeenCalledWith(48, 64, 16, 16);
+    expect(ctx.rect).toHaveBeenCalledWith(48, 32, 16, 16);
+    expect(ctx.rect).toHaveBeenCalledWith(64, 48, 16, 16);
+    expect(ctx.rect).toHaveBeenCalledWith(32, 48, 16, 16);
+    expect(ctx.clip).toHaveBeenCalledTimes(4);
+  });
+
   it('draws lava with glow, wave-lit body, and ridge/shadow overlays', () => {
     const ctx = makeCtx();
     const solid = setOpaqueGrid('#FF004D');

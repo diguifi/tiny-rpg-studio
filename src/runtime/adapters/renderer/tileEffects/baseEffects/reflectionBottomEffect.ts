@@ -2,7 +2,7 @@ import type { TileEffectPaintContext } from '../types';
 
 const REFLECTION_ALPHA = 0.2;
 
-/** Mirror a sprite upward across a tile's bottom edge. */
+/** Project a sprite upward across a tile's bottom edge without flipping its rows. */
 export function paintReflectionBottom(
     ctx: CanvasRenderingContext2D,
     host: TileEffectPaintContext['host'],
@@ -25,6 +25,6 @@ export function paintReflectionBottom(
     ctx.rect(targetPx, targetPy, size, size);
     ctx.clip();
     ctx.globalAlpha *= REFLECTION_ALPHA;
-    host.drawPixelGrid(ctx, [...sprite].reverse(), sourcePx, reflectedPy, step);
+    host.drawPixelGrid(ctx, sprite, sourcePx, reflectedPy, step);
     ctx.restore();
 }
