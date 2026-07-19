@@ -132,3 +132,31 @@ describe('EditorHistoryManager - customSprites', () => {
     );
   });
 });
+
+describe('EditorHistoryManager - custom tile effect color', () => {
+  it('restores the definition color through undo snapshots', () => {
+    const uncolored = {
+      customTileEffects: [{ id: 'custom:0', name: 'Glow', baseEffectIds: ['glow'] }],
+    };
+    const colored = {
+      customTileEffects: [{
+        id: 'custom:0', name: 'Glow', baseEffectIds: ['glow'], color: '#00FF7F',
+      }],
+    };
+    const exportFn = vi.fn()
+      .mockReturnValueOnce(uncolored)
+      .mockReturnValueOnce(colored);
+    const restoreFn = vi.fn();
+    const manager = {
+      gameEngine: { exportGameData: exportFn },
+      restore: restoreFn,
+    } as unknown as EditorManager;
+    const history = new EditorHistoryManager(manager);
+    history.pushCurrentState();
+    history.pushCurrentState();
+
+    history.undo();
+
+    expect(restoreFn).toHaveBeenCalledWith(uncolored, { skipHistory: true });
+  });
+});

@@ -70,7 +70,12 @@ type GameEngineApi = {
       game: {
         title: string;
         backgroundMusicVideoId?: string;
-        customTileEffects?: Array<{ id: `custom:${string}`; name: string; baseEffectIds: ['glow'] }>;
+        customTileEffects?: Array<{
+          id: `custom:${string}`;
+          name: string;
+          baseEffectIds: ['glow'];
+          color?: `#${string}`;
+        }>;
         tileset?: { tiles: Array<{ id: number; visualEffect?: string }> };
       };
     };
@@ -129,12 +134,31 @@ type GameEngineApi = {
   backgroundMusicEngine?: StubBackgroundMusicEngine;
   resumeBackgroundMusic: () => void;
   startEnemyLoop: () => void;
+  createCustomTileEffect: (
+    name: string,
+    ids: readonly ['glow'],
+    color?: '#00FF7F',
+  ) => { ok: boolean; definition?: { color?: string } };
   deleteCustomTileEffect: (id: `custom:${string}`) => boolean;
 };
 
 type GameEngineCtor = new (canvas: HTMLCanvasElement) => GameEngineApi;
 
 describe('GameEngine business rules (legacy)', () => {
+  it('creates custom effects with one normalized definition color', () => {
+    const engine = createEngine();
+    const result = engine.createCustomTileEffect('Green', ['glow'], '#00FF7F');
+    expect(result).toEqual({
+      ok: true,
+      definition: {
+        id: 'custom:0', name: 'Green', baseEffectIds: ['glow'], color: '#00FF7F',
+      },
+    });
+    expect(engine.gameState.state.game.customTileEffects).toEqual([
+      { id: 'custom:0', name: 'Green', baseEffectIds: ['glow'], color: '#00FF7F' },
+    ]);
+  });
+
   it('deletes custom effects and clears every tile assignment that used them', () => {
     const engine = createEngine();
     const game = engine.gameState.state.game;

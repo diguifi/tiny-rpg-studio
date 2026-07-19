@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { ShareDecoder } from '../../src/runtime/infra/share/ShareDecoder';
 
 test('creates, assigns, shares, and exports a custom tile effect', async ({ page }) => {
   await page.goto('/');
@@ -11,7 +12,13 @@ test('creates, assigns, shares, and exports a custom tile effect', async ({ page
   await expect(page.locator('[data-base-effect-id="reflection-top"]')).toBeVisible();
 
   await page.click('[data-base-effect-id="caustic"]');
+  await page.click('[data-base-effect-id="glow"]');
   await page.click('[data-base-effect-id="sparkle"]');
+  await expect(page.locator('#custom-effect-color-control')).toBeVisible();
+  await page.locator('#custom-effect-color').evaluate((input: HTMLInputElement) => {
+    input.value = '#00ff7f';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   const firstPreview = await page.locator('#custom-effect-preview').evaluate(
     (canvas: HTMLCanvasElement) => canvas.toDataURL(),
   );
@@ -20,8 +27,8 @@ test('creates, assigns, shares, and exports a custom tile effect', async ({ page
     (canvas: HTMLCanvasElement) => canvas.toDataURL(),
   );
   expect(animatedPreview).not.toBe(firstPreview);
-  await page.click('[data-remove-base-effect-id="caustic"]');
-  await page.click('[data-base-effect-id="caustic"]');
+  await page.click('[data-remove-base-effect-id="glow"]');
+  await page.click('[data-base-effect-id="glow"]');
   await page.fill('#custom-effect-name', 'Magic FX');
   await page.click('#custom-effect-save');
 
@@ -35,6 +42,10 @@ test('creates, assigns, shares, and exports a custom tile effect', async ({ page
   await expect(page.locator('#project-share-url')).not.toHaveValue('');
   const shareUrl = await page.locator('#project-share-url').inputValue();
   expect(shareUrl).toContain('#v11.');
+  const decodedShare = ShareDecoder.decodeShareCode(new URL(shareUrl).hash.slice(1)) as {
+    customTileEffects?: Array<{ color?: string }>;
+  } | null;
+  expect(decodedShare?.customTileEffects?.[0]?.color).toBe('#00FF7F');
 
   await page.goto(shareUrl);
   await page.click('button[data-tab="editor"]');

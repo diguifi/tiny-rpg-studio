@@ -18,6 +18,21 @@ describe('base tile effect registry', () => {
     expect(BASE_TILE_EFFECT_IDS.some((id) => id.includes('procedural'))).toBe(false);
   });
 
+  it('exposes custom-color capability only for the six opted-in tint and glow passes', () => {
+    const capable = listBaseTileEffects()
+      .filter((entry) => entry.defaultCustomColor)
+      .map((entry) => [entry.id, entry.defaultCustomColor]);
+    expect(capable).toEqual([
+      ['cool-tint', '#1E6EC8'],
+      ['deep-tint', '#0A2D78'],
+      ['glow', '#FF5A00'],
+      ['intense-glow', '#FF2D00'],
+      ['murky-tint', '#416446'],
+      ['soft-glow', '#FF6E1E'],
+    ]);
+    expect(listBaseTileEffects().find((entry) => entry.id === 'sparkle')?.defaultCustomColor).toBeUndefined();
+  });
+
   it('adapts every directional reflection to the single-tile painter contract', () => {
     const host = {
       drawPixelGrid: vi.fn(),

@@ -4765,6 +4765,10 @@ body.game-mode .tab-button.active {
 .custom-effect-preview-column { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
 #custom-effect-preview { align-self: center; width: min(192px, 100%); height: auto; image-rendering: pixelated; background: var(--bg); }
 #custom-effect-name { padding: 6px 8px; border: 2px solid var(--border); background: var(--bg); color: var(--text); }
+.custom-effect-color-control { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 10px; }
+.custom-effect-color-control[hidden] { display: none; }
+.custom-effect-color-control .custom-effect-help { grid-column: 1 / -1; }
+#custom-effect-color { width: 48px; height: 32px; padding: 2px; border: 2px solid var(--border); background: var(--bg); cursor: pointer; }
 .custom-effect-status { min-height: 1.4em; color: #ff6b6b; }
 
 @media (max-width: 760px) {

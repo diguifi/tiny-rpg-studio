@@ -4,9 +4,11 @@ import { TileDefinitions } from '../../runtime/domain/definitions/TileDefinition
 import { GameConfig } from '../../config/GameConfig';
 import {
     CUSTOM_TILE_EFFECT_LIMITS,
+    normalizeCustomTileEffectColor,
     normalizeCustomTileEffects,
     type BaseTileEffectId,
     type CreateCustomTileEffectError,
+    type CustomTileEffectColor,
     type CustomTileEffectDefinition,
     type CustomTileEffectId,
 } from '../../runtime/domain/definitions/customTileEffects';
@@ -14,7 +16,11 @@ import type { TileDefinition } from '../../runtime/domain/definitions/tileTypes'
 
 type ManagerDeps = {
     gameEngine: {
-        createCustomTileEffect(name: string, ids: readonly BaseTileEffectId[]): {
+        createCustomTileEffect(
+            name: string,
+            ids: readonly BaseTileEffectId[],
+            color?: CustomTileEffectColor
+        ): {
             ok: boolean;
             error?: CreateCustomTileEffectError;
         };
@@ -27,7 +33,8 @@ type ManagerDeps = {
                 tile: TileDefinition | null,
                 ids: readonly BaseTileEffectId[],
                 frameOverride?: number,
-                timeMs?: number
+                timeMs?: number,
+                color?: CustomTileEffectColor
             ): void;
         };
     };
@@ -52,6 +59,7 @@ export class CustomTileEffectEditorController {
     private previewAnimationFrame: number | null = null;
     private previewStartedAt = 0;
     private previewStep = 0;
+    private draftColor: CustomTileEffectColor | null = null;
 
     init(manager: ManagerDeps, dom: DomDeps): void {
         this.manager = manager;
@@ -67,6 +75,7 @@ export class CustomTileEffectEditorController {
         this.nameInput().value = '';
         this.lastError = null;
         this.previewStep = 0;
+        this.draftColor = null;
         this.setStatus('');
         this.sampleTile = this.manager.gameEngine.tileManager.getTile(0)
             ?? TileDefinitions.TILE_PRESETS.find((tile) => Number(tile.id) === 0)
@@ -81,6 +90,7 @@ export class CustomTileEffectEditorController {
         this.stopPreviewAnimation();
         this.dom?.customTileEffectModal?.setAttribute('hidden', '');
         this.selectedIds = [];
+        this.draftColor = null;
         this.lastFocus?.focus();
     }
 
@@ -88,7 +98,8 @@ export class CustomTileEffectEditorController {
         if (!this.manager) return;
         const result = this.manager.gameEngine.createCustomTileEffect(
             this.nameInput().value,
-            this.selectedIds
+            this.selectedIds,
+            this.colorCapability()?.defaultCustomColor ? this.draftColor ?? undefined : undefined
         );
         if (!result.ok) {
             this.lastError = result.error ?? 'invalid-passes';
@@ -105,6 +116,7 @@ export class CustomTileEffectEditorController {
         this.renderCatalog();
         this.renderSelected();
         this.renderSavedEffects();
+        this.renderColorControl();
         this.renderPreview();
         if (this.lastError) this.setStatus(this.errorText(this.lastError));
     }
@@ -117,7 +129,8 @@ export class CustomTileEffectEditorController {
                 this.sampleTile,
                 this.selectedIds,
                 this.previewStep,
-                this.previewStep * GameConfig.animation.tileInterval
+                this.previewStep * GameConfig.animation.tileInterval,
+                this.colorCapability() ? this.draftColor ?? undefined : undefined
             );
         }
     }
@@ -232,6 +245,29 @@ export class CustomTileEffectEditorController {
         }
     }
 
+    private colorCapability(): ReturnType<typeof listBaseTileEffects>[number] | undefined {
+        const catalog = new Map(listBaseTileEffects().map((entry) => [entry.id, entry]));
+        return this.selectedIds
+            .map((id) => catalog.get(id))
+            .find((entry) => Boolean(entry?.defaultCustomColor));
+    }
+
+    private renderColorControl(): void {
+        const control = this.query<HTMLElement>('#custom-effect-color-control');
+        const input = this.query<HTMLInputElement>('#custom-effect-color');
+        if (!control || !input) return;
+        const capability = this.colorCapability();
+        if (!capability?.defaultCustomColor) {
+            control.setAttribute('hidden', '');
+            input.disabled = true;
+            return;
+        }
+        if (!this.draftColor) this.draftColor = capability.defaultCustomColor;
+        control.removeAttribute('hidden');
+        input.disabled = false;
+        input.value = this.draftColor;
+    }
+
     private bindEvents(): void {
         if (this.eventsReady || !this.dom?.customTileEffectModal) return;
         this.eventsReady = true;
@@ -240,6 +276,12 @@ export class CustomTileEffectEditorController {
         this.query('#custom-effect-save')?.addEventListener('click', () => this.save());
         this.query('#custom-effect-cancel')?.addEventListener('click', () => this.close());
         this.query('#custom-effect-close')?.addEventListener('click', () => this.close());
+        this.query('#custom-effect-color')?.addEventListener('input', (event) => {
+            const color = normalizeCustomTileEffectColor((event.target as HTMLInputElement).value);
+            if (!color) return;
+            this.draftColor = color;
+            this.renderPreview();
+        });
         modal.addEventListener('click', (event) => {
             if (event.target === modal) this.close();
             const target = event.target as HTMLElement;

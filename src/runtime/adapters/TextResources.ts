@@ -6,6 +6,8 @@ const CUSTOM_TILE_EFFECT_TEXT = {
     'customEffects.preview': 'Preview',
     'customEffects.name': 'Effect name',
     'customEffects.namePlaceholder': 'My effect',
+    'customEffects.color': 'Effect color',
+    'customEffects.colorHelp': 'One color affects every tint and glow pass in this effect.',
     'customEffects.selected': 'Selected order',
     'customEffects.add': 'Add',
     'customEffects.remove': 'Remove',

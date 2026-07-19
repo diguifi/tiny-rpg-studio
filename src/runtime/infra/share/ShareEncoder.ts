@@ -648,6 +648,7 @@ class ShareEncoder {
                     definition.id.slice('custom:'.length),
                     definition.name,
                     definition.baseEffectIds.map((id) => BASE_TILE_EFFECT_IDS.indexOf(id)),
+                    ...(definition.color ? [definition.color.slice(1)] : []),
                 ]);
                 const envelope = { a: effectMap, d: compactDefinitions };
                 parts.push('0' + ShareTextCodec.encodeText(JSON.stringify(envelope)));

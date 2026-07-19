@@ -23,6 +23,7 @@ import {
   normalizeCustomTileEffects,
   type BaseTileEffectId,
   type CreateCustomTileEffectResult,
+  type CustomTileEffectColor,
   type CustomTileEffectDefinition,
   type CustomTileEffectId,
   type TileVisualEffectKind,
@@ -384,9 +385,13 @@ export class GameEngine {
     return this.gameState.exportGameData();
   }
 
-  createCustomTileEffect(name: string, baseEffectIds: readonly BaseTileEffectId[]): CreateCustomTileEffectResult {
+  createCustomTileEffect(
+    name: string,
+    baseEffectIds: readonly BaseTileEffectId[],
+    color?: CustomTileEffectColor,
+  ): CreateCustomTileEffectResult {
     const game = this.gameState.getGame();
-    const result = createCustomTileEffect(game.customTileEffects, name, Array.from(baseEffectIds));
+    const result = createCustomTileEffect(game.customTileEffects, name, Array.from(baseEffectIds), color);
     if (result.ok) {
       game.customTileEffects = [
         ...normalizeCustomTileEffects(game.customTileEffects),

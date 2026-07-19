@@ -34,8 +34,8 @@ describe('custom tile effect state persistence', () => {
   it('exports used and unused normalized definitions', () => {
     const target = game();
     target.customTileEffects = [
-      { id: 'custom:0', name: 'Glow', baseEffectIds: ['glow'] },
-      { id: 'custom:1', name: 'Unused', baseEffectIds: ['sparkle'] },
+      { id: 'custom:0', name: 'Glow', baseEffectIds: ['glow'], color: '#00FF7F' },
+      { id: 'custom:1', name: 'Unused', baseEffectIds: ['cool-tint'], color: '#ABCDEF' },
     ];
     target.tileset.tiles[0].visualEffect = 'custom:0';
     const exported = manager(target).exportGameData();
@@ -47,7 +47,8 @@ describe('custom tile effect state persistence', () => {
     const target = game();
     manager(target).importGameData({
       customTileEffects: [
-        { id: 'custom:0', name: ' Glow ', baseEffectIds: ['glow', 'unknown' as never] },
+        { id: 'custom:0', name: ' Glow ', baseEffectIds: ['glow', 'unknown' as never], color: '#abcdef' },
+        { id: 'custom:1', name: 'Bad', baseEffectIds: ['sparkle'], color: '#12345678' },
       ],
       tileset: {
         tiles: [
@@ -57,7 +58,8 @@ describe('custom tile effect state persistence', () => {
       },
     });
     expect(target.customTileEffects).toEqual([
-      { id: 'custom:0', name: 'Glow', baseEffectIds: ['glow'] },
+      { id: 'custom:0', name: 'Glow', baseEffectIds: ['glow'], color: '#ABCDEF' },
+      { id: 'custom:1', name: 'Bad', baseEffectIds: ['sparkle'] },
     ]);
     expect(target.tileset.tiles.map((tile) => tile.visualEffect)).toEqual(['custom:0', 'none']);
   });

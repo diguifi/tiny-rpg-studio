@@ -3,6 +3,7 @@ import {
   BASE_TILE_EFFECT_IDS,
   CUSTOM_TILE_EFFECT_LIMITS,
   createCustomTileEffect,
+  normalizeCustomTileEffectColor,
   normalizeCustomTileEffects,
   normalizeTileVisualEffect,
 } from '../../runtime/domain/definitions/customTileEffects';
@@ -20,6 +21,25 @@ describe('custom tile effect definitions', () => {
       ['cool-tint'],
     );
     expect(second.ok && second.definition.id).toBe('custom:1');
+  });
+
+  it('normalizes strict six-digit colors and omits unsupported values', () => {
+    expect(normalizeCustomTileEffectColor('#a1b2c3')).toBe('#A1B2C3');
+    expect(normalizeCustomTileEffectColor('#ABCDEF')).toBe('#ABCDEF');
+    for (const invalid of ['#abc', '#12345678', '123456', 'inherit', null, 123]) {
+      expect(normalizeCustomTileEffectColor(invalid)).toBeUndefined();
+    }
+
+    expect(createCustomTileEffect([], 'Color', ['glow'], '#00ff7f')).toEqual({
+      ok: true,
+      definition: {
+        id: 'custom:0', name: 'Color', baseEffectIds: ['glow'], color: '#00FF7F',
+      },
+    });
+    expect(createCustomTileEffect([], 'Legacy', ['glow'], '#bad')).toEqual({
+      ok: true,
+      definition: { id: 'custom:0', name: 'Legacy', baseEffectIds: ['glow'] },
+    });
   });
 
   it('rejects invalid drafts and case-insensitive duplicate names', () => {
@@ -44,6 +64,26 @@ describe('custom tile effect definitions', () => {
     expect(normalized).toEqual([
       { id: 'custom:0', name: 'First', baseEffectIds: ['glow', 'sparkle'] },
     ]);
+  });
+
+  it('preserves only own valid color data from normalized definitions', () => {
+    Object.defineProperty(Object.prototype, 'color', {
+      configurable: true,
+      value: '#123456',
+    });
+    try {
+      expect(normalizeCustomTileEffects([
+        { id: 'custom:0', name: 'Inherited', baseEffectIds: ['glow'] },
+        { id: 'custom:1', name: 'Lower', baseEffectIds: ['cool-tint'], color: '#abcdef' },
+        { id: 'custom:2', name: 'Alpha', baseEffectIds: ['glow'], color: '#12345678' },
+      ])).toEqual([
+        { id: 'custom:0', name: 'Inherite', baseEffectIds: ['glow'] },
+        { id: 'custom:1', name: 'Lower', baseEffectIds: ['cool-tint'], color: '#ABCDEF' },
+        { id: 'custom:2', name: 'Alpha', baseEffectIds: ['glow'] },
+      ]);
+    } finally {
+      delete (Object.prototype as { color?: string }).color;
+    }
   });
 
   it('enforces project limits and turns dangling assignments into none', () => {

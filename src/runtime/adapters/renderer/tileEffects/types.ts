@@ -8,6 +8,7 @@
 
 import type {
     BuiltInTileVisualEffectKind,
+    CustomTileEffectColor,
     TileVisualEffectKind,
 } from '../../../domain/definitions/customTileEffects';
 
@@ -45,6 +46,7 @@ export type TileEffectPaintContext = {
     size: number;
     /** Stable discrete clock (ms), advanced only on tile-animation ticks. */
     timeMs: number;
+    customColor?: CustomTileEffectColor;
 };
 
 /** One independently composable tile paint pass. */

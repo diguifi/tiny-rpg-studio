@@ -1,6 +1,7 @@
 import {
     BASE_TILE_EFFECT_IDS,
     type BaseTileEffectId,
+    type CustomTileEffectColor,
 } from '../../../domain/definitions/customTileEffects';
 import { paintCalmWave } from './baseEffects/calmWaveEffect';
 import { paintCaustic } from './baseEffects/causticEffect';
@@ -35,6 +36,7 @@ export type BaseTileEffectCatalogEntry = {
     fallbackLabel: string;
     helpTextKey?: string;
     fallbackHelp?: string;
+    defaultCustomColor?: CustomTileEffectColor;
     painter: TileEffectPainter;
 };
 
@@ -75,21 +77,21 @@ const CATALOG_BY_ID: Record<BaseTileEffectId, BaseTileEffectCatalogEntry> = {
     'calm-wave': { id: 'calm-wave', textKey: 'customEffects.base.calmWave', fallbackLabel: 'Calm wave', painter: paintCalmWave },
     caustic: { id: 'caustic', textKey: 'customEffects.base.caustic', fallbackLabel: 'Caustic light', painter: paintCaustic },
     'choppy-wave': { id: 'choppy-wave', textKey: 'customEffects.base.choppyWave', fallbackLabel: 'Choppy wave', painter: paintChoppyWave },
-    'cool-tint': { id: 'cool-tint', textKey: 'customEffects.base.coolTint', fallbackLabel: 'Cool tint', painter: paintCoolTint },
-    'deep-tint': { id: 'deep-tint', textKey: 'customEffects.base.deepTint', fallbackLabel: 'Deep tint', painter: paintDeepTint },
+    'cool-tint': { id: 'cool-tint', textKey: 'customEffects.base.coolTint', fallbackLabel: 'Cool tint', defaultCustomColor: '#1E6EC8', painter: paintCoolTint },
+    'deep-tint': { id: 'deep-tint', textKey: 'customEffects.base.deepTint', fallbackLabel: 'Deep tint', defaultCustomColor: '#0A2D78', painter: paintDeepTint },
     'diagonal-outline': { id: 'diagonal-outline', textKey: 'customEffects.base.diagonalOutline', fallbackLabel: 'Diagonal outline', ...outlineHelp, painter: paintDiagonalOutline },
     embers: { id: 'embers', textKey: 'customEffects.base.embers', fallbackLabel: 'Embers', painter: paintEmbers },
     emissive: { id: 'emissive', textKey: 'customEffects.base.emissive', fallbackLabel: 'Emissive', painter: paintEmissive },
     'gentle-ridge': { id: 'gentle-ridge', textKey: 'customEffects.base.gentleRidge', fallbackLabel: 'Gentle ridge', painter: paintGentleRidge },
-    glow: { id: 'glow', textKey: 'customEffects.base.glow', fallbackLabel: 'Glow', painter: paintGlow },
+    glow: { id: 'glow', textKey: 'customEffects.base.glow', fallbackLabel: 'Glow', defaultCustomColor: '#FF5A00', painter: paintGlow },
     'height-field-body': { id: 'height-field-body', textKey: 'customEffects.base.heightFieldBody', fallbackLabel: 'Height-field body', painter: paintHeightFieldBody },
     'inner-outline': { id: 'inner-outline', textKey: 'customEffects.base.innerOutline', fallbackLabel: 'Inner outline', ...outlineHelp, painter: paintInnerOutline },
-    'intense-glow': { id: 'intense-glow', textKey: 'customEffects.base.intenseGlow', fallbackLabel: 'Intense glow', painter: paintIntenseGlow },
-    'murky-tint': { id: 'murky-tint', textKey: 'customEffects.base.murkyTint', fallbackLabel: 'Murky tint', painter: paintMurkyTint },
+    'intense-glow': { id: 'intense-glow', textKey: 'customEffects.base.intenseGlow', fallbackLabel: 'Intense glow', defaultCustomColor: '#FF2D00', painter: paintIntenseGlow },
+    'murky-tint': { id: 'murky-tint', textKey: 'customEffects.base.murkyTint', fallbackLabel: 'Murky tint', defaultCustomColor: '#416446', painter: paintMurkyTint },
     outline: { id: 'outline', textKey: 'customEffects.base.outline', fallbackLabel: 'Outline', ...outlineHelp, painter: paintTileEffectOutline },
     'ridge-wave': { id: 'ridge-wave', textKey: 'customEffects.base.ridgeWave', fallbackLabel: 'Ridge wave', painter: paintRidgeWave },
     'sharp-ridge': { id: 'sharp-ridge', textKey: 'customEffects.base.sharpRidge', fallbackLabel: 'Sharp ridge', painter: paintSharpRidge },
-    'soft-glow': { id: 'soft-glow', textKey: 'customEffects.base.softGlow', fallbackLabel: 'Soft glow', painter: paintSoftGlow },
+    'soft-glow': { id: 'soft-glow', textKey: 'customEffects.base.softGlow', fallbackLabel: 'Soft glow', defaultCustomColor: '#FF6E1E', painter: paintSoftGlow },
     sparkle: { id: 'sparkle', textKey: 'customEffects.base.sparkle', fallbackLabel: 'Sparkle', painter: paintSparkle },
     specular: { id: 'specular', textKey: 'customEffects.base.specular', fallbackLabel: 'Specular highlight', painter: paintSpecular },
     'translucent-wave': { id: 'translucent-wave', textKey: 'customEffects.base.translucentWave', fallbackLabel: 'Translucent wave', painter: paintTranslucentWave },

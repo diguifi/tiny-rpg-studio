@@ -16,7 +16,10 @@ import { RendererParticleSystem } from './renderer/RendererParticleSystem';
 import { RendererAttackTelegraph } from './renderer/RendererAttackTelegraph';
 import { RendererSwordSwing } from './renderer/RendererSwordSwing';
 import type { TileDefinition } from '../domain/definitions/tileTypes';
-import type { BaseTileEffectId } from '../domain/definitions/customTileEffects';
+import type {
+    BaseTileEffectId,
+    CustomTileEffectColor,
+} from '../domain/definitions/customTileEffects';
 import { GameConfig } from '../../config/GameConfig';
 import { bitmapFont } from './renderer/BitmapFont';
 import { DebugFlags } from '../debug/DebugFlags';
@@ -399,9 +402,17 @@ class Renderer {
         tile: TileDefinition | null,
         baseEffectIds: readonly BaseTileEffectId[],
         frameOverride = 0,
-        timeMs?: number
+        timeMs?: number,
+        customColor?: CustomTileEffectColor
     ): void {
-        this.canvasHelper.drawCustomTileEffectPreview(canvas, tile, baseEffectIds, frameOverride, timeMs);
+        this.canvasHelper.drawCustomTileEffectPreview(
+            canvas,
+            tile,
+            baseEffectIds,
+            frameOverride,
+            timeMs,
+            customColor
+        );
     }
 
     drawTileIconOnPlayer(ctx: CanvasRenderingContext2D, tileId: string) {

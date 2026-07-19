@@ -10,6 +10,9 @@ function setup() {
       <div id="custom-effect-catalog"></div>
       <canvas id="custom-effect-preview" width="192" height="192"></canvas>
       <input id="custom-effect-name">
+      <div id="custom-effect-color-control" hidden>
+        <input id="custom-effect-color" type="color" value="#ff5a00" disabled>
+      </div>
       <div id="custom-effect-selected"></div>
       <p id="custom-effect-status"></p>
       <button id="custom-effect-cancel"></button>
@@ -59,7 +62,7 @@ describe('CustomTileEffectEditorController', () => {
     expect(document.querySelectorAll('[data-base-effect-id]')).toHaveLength(25);
     expect(document.querySelector('[data-base-effect-id="reflection-top"]')).not.toBeNull();
     expect(manager.gameEngine.renderer.drawCustomTileEffectPreview).toHaveBeenLastCalledWith(
-      expect.any(HTMLCanvasElement), expect.objectContaining({ id: 0 }), [], 0, 0,
+      expect.any(HTMLCanvasElement), expect.objectContaining({ id: 0 }), [], 0, 0, undefined,
     );
 
     (document.querySelector('[data-base-effect-id="glow"]') as HTMLButtonElement).click();
@@ -70,7 +73,7 @@ describe('CustomTileEffectEditorController', () => {
       '1. Sparkle', '2. Glow',
     ]);
     expect(manager.gameEngine.renderer.drawCustomTileEffectPreview).toHaveBeenLastCalledWith(
-      expect.any(HTMLCanvasElement), expect.anything(), ['sparkle', 'glow'], 0, 0,
+      expect.any(HTMLCanvasElement), expect.anything(), ['sparkle', 'glow'], 0, 0, '#FF5A00',
     );
     controller.close();
   });
@@ -91,7 +94,7 @@ describe('CustomTileEffectEditorController', () => {
     const callback = animationCallback as FrameRequestCallback | null;
     callback?.(now + 640);
     expect(manager.gameEngine.renderer.drawCustomTileEffectPreview).toHaveBeenLastCalledWith(
-      expect.any(HTMLCanvasElement), expect.anything(), [], 2, 640,
+      expect.any(HTMLCanvasElement), expect.anything(), [], 2, 640, undefined,
     );
 
     controller.close();
@@ -125,11 +128,58 @@ describe('CustomTileEffectEditorController', () => {
     (document.querySelector('#custom-effect-name') as HTMLInputElement).value = 'Magic';
     (document.querySelector('[data-base-effect-id="glow"]') as HTMLButtonElement).click();
     controller.save();
-    expect(createCustomTileEffect).toHaveBeenLastCalledWith('Magic', ['glow']);
+    expect(createCustomTileEffect).toHaveBeenLastCalledWith('Magic', ['glow'], '#FF5A00');
     expect(manager.renderAll).toHaveBeenCalledTimes(1);
     expect(manager.updateJSON).toHaveBeenCalledTimes(1);
     expect(manager.history.pushCurrentState).toHaveBeenCalledTimes(1);
     expect(document.querySelector('#custom-effect-modal')?.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('shows, seeds, preserves, previews, and conditionally saves the draft color', () => {
+    const { controller, manager, createCustomTileEffect } = setup();
+    controller.open();
+    const control = document.querySelector('#custom-effect-color-control') as HTMLElement;
+    const input = document.querySelector('#custom-effect-color') as HTMLInputElement;
+    expect(control.hasAttribute('hidden')).toBe(true);
+    expect(input.disabled).toBe(true);
+
+    (document.querySelector('[data-base-effect-id="sparkle"]') as HTMLButtonElement).click();
+    expect(control.hasAttribute('hidden')).toBe(true);
+    (document.querySelector('[data-base-effect-id="glow"]') as HTMLButtonElement).click();
+    expect(control.hasAttribute('hidden')).toBe(false);
+    expect(input.value).toBe('#ff5a00');
+
+    input.value = '#00ff7f';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(manager.gameEngine.renderer.drawCustomTileEffectPreview).toHaveBeenLastCalledWith(
+      expect.any(HTMLCanvasElement), expect.anything(), ['sparkle', 'glow'], 0, 0, '#00FF7F',
+    );
+    document.dispatchEvent(new CustomEvent('language-changed'));
+    expect(input.value).toBe('#00ff7f');
+
+    (document.querySelector('[data-remove-base-effect-id="glow"]') as HTMLButtonElement).click();
+    expect(control.hasAttribute('hidden')).toBe(true);
+    (document.querySelector('[data-base-effect-id="cool-tint"]') as HTMLButtonElement).click();
+    expect(input.value).toBe('#00ff7f');
+    (document.querySelector('#custom-effect-name') as HTMLInputElement).value = 'Green';
+    controller.save();
+    expect(createCustomTileEffect).toHaveBeenLastCalledWith('Green', ['sparkle', 'cool-tint'], '#00FF7F');
+
+    controller.open();
+    (document.querySelector('[data-base-effect-id="glow"]') as HTMLButtonElement).click();
+    expect(input.value).toBe('#ff5a00');
+    controller.close();
+  });
+
+  it('omits color when the last color-capable pass is removed', () => {
+    const { controller, createCustomTileEffect } = setup();
+    controller.open();
+    (document.querySelector('[data-base-effect-id="glow"]') as HTMLButtonElement).click();
+    (document.querySelector('[data-base-effect-id="sparkle"]') as HTMLButtonElement).click();
+    (document.querySelector('[data-remove-base-effect-id="glow"]') as HTMLButtonElement).click();
+    (document.querySelector('#custom-effect-name') as HTMLInputElement).value = 'Stars';
+    controller.save();
+    expect(createCustomTileEffect).toHaveBeenLastCalledWith('Stars', ['sparkle'], undefined);
   });
 
   it('discards through backdrop and Escape without creating data', () => {

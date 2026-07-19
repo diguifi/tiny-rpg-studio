@@ -28,6 +28,7 @@ export const BASE_TILE_EFFECT_IDS = [
 
 export type BaseTileEffectId = (typeof BASE_TILE_EFFECT_IDS)[number];
 export type CustomTileEffectId = `custom:${string}`;
+export type CustomTileEffectColor = `#${string}`;
 export type BuiltInTileVisualEffectKind = 'none' | 'water' | 'lava';
 export type TileVisualEffectKind = BuiltInTileVisualEffectKind | CustomTileEffectId;
 
@@ -35,6 +36,7 @@ export type CustomTileEffectDefinition = {
     id: CustomTileEffectId;
     name: string;
     baseEffectIds: BaseTileEffectId[];
+    color?: CustomTileEffectColor;
 };
 
 export const CUSTOM_TILE_EFFECT_LIMITS = {
@@ -71,6 +73,11 @@ export function isCustomTileEffectId(value: unknown): value is CustomTileEffectI
     return typeof value === 'string' && CUSTOM_ID_PATTERN.test(value);
 }
 
+export function normalizeCustomTileEffectColor(value: unknown): CustomTileEffectColor | undefined {
+    if (typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value)) return undefined;
+    return value.toUpperCase() as CustomTileEffectColor;
+}
+
 export function normalizeCustomTileEffects(value: unknown): CustomTileEffectDefinition[] {
     if (!Array.isArray(value)) return [];
 
@@ -102,7 +109,15 @@ export function normalizeCustomTileEffects(value: unknown): CustomTileEffectDefi
 
         usedIds.add(candidate.id);
         usedNames.add(normalizedName);
-        result.push({ id: candidate.id, name, baseEffectIds: passes });
+        const color = Object.prototype.hasOwnProperty.call(candidate, 'color')
+            ? normalizeCustomTileEffectColor(candidate.color)
+            : undefined;
+        result.push({
+            id: candidate.id,
+            name,
+            baseEffectIds: passes,
+            ...(color ? { color } : {}),
+        });
     }
     return result;
 }
@@ -110,7 +125,8 @@ export function normalizeCustomTileEffects(value: unknown): CustomTileEffectDefi
 export function createCustomTileEffect(
     existingValue: unknown,
     nameValue: unknown,
-    passValue: unknown
+    passValue: unknown,
+    colorValue?: unknown
 ): CreateCustomTileEffectResult {
     const existing = normalizeCustomTileEffects(existingValue);
     if (existing.length >= CUSTOM_TILE_EFFECT_LIMITS.maxDefinitions) {
@@ -138,6 +154,7 @@ export function createCustomTileEffect(
     const usedIds = new Set(existing.map((definition) => definition.id));
     let suffix = 0;
     while (usedIds.has(`custom:${suffix.toString(36)}`)) suffix += 1;
+    const color = normalizeCustomTileEffectColor(colorValue);
 
     return {
         ok: true,
@@ -145,6 +162,7 @@ export function createCustomTileEffect(
             id: `custom:${suffix.toString(36)}`,
             name,
             baseEffectIds: passValue as BaseTileEffectId[],
+            ...(color ? { color } : {}),
         },
     };
 }

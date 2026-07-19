@@ -78,6 +78,91 @@ describe('RendererCanvasHelper', () => {
     expect(helper.getTileVisualEffect({ name: 'Water', category: 'Agua', visualEffect: 'custom:missing' })).toBe('none');
     expect(helper.getTileVisualEffect({ name: 'Water', category: 'Agua', visualEffect: 'custom:INVALID' })).toBe('none');
   });
+
+  it('uses the same definition and draft color path for saved tiles and modal previews', () => {
+    const savedCtx = makeCtx();
+    const savedShadows: string[] = [];
+    Object.defineProperty(savedCtx, 'shadowColor', {
+      configurable: true,
+      get: () => savedShadows.at(-1) ?? '',
+      set: (value: string) => savedShadows.push(value),
+    });
+    const gameState = {
+      getGame: () => ({
+        enableEffects: true,
+        customTileEffects: [{
+          id: 'custom:0' as const,
+          name: 'Green',
+          baseEffectIds: ['glow' as const],
+          color: '#00FF7F' as const,
+        }],
+      }),
+    };
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'), asCanvasCtx(savedCtx), null, null, gameState,
+    );
+    helper.drawTilePixels(
+      asCanvasCtx(savedCtx),
+      makeTile({ visualEffect: 'custom:0' }),
+      setOpaqueGrid('#ffffff'),
+      0,
+      0,
+      64,
+    );
+    expect(savedShadows).toContain('rgba(0, 255, 127, 0.4)');
+
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.width = 192;
+    previewCanvas.height = 192;
+    const previewCtx = makeCtx();
+    const previewShadows: string[] = [];
+    Object.defineProperty(previewCtx, 'shadowColor', {
+      configurable: true,
+      get: () => previewShadows.at(-1) ?? '',
+      set: (value: string) => previewShadows.push(value),
+    });
+    vi.spyOn(previewCanvas, 'getContext').mockReturnValue(asCanvasCtx(previewCtx));
+    helper.drawCustomTileEffectPreview(
+      previewCanvas,
+      makeTile({ pixels: setOpaqueGrid('#ffffff') }),
+      ['glow'],
+      0,
+      0,
+      '#00FF7F',
+    );
+    expect(previewShadows).toContain('rgba(0, 255, 127, 0.4)');
+  });
+
+  it('keeps saved uncolored custom definitions on legacy painter colors', () => {
+    const ctx = makeCtx();
+    const shadows: string[] = [];
+    Object.defineProperty(ctx, 'shadowColor', {
+      configurable: true,
+      get: () => shadows.at(-1) ?? '',
+      set: (value: string) => shadows.push(value),
+    });
+    const helper = new RendererCanvasHelper(
+      document.createElement('canvas'),
+      asCanvasCtx(ctx),
+      null,
+      null,
+      {
+        getGame: () => ({
+          enableEffects: true,
+          customTileEffects: [{ id: 'custom:0' as const, name: 'Legacy', baseEffectIds: ['glow' as const] }],
+        }),
+      },
+    );
+    helper.drawTilePixels(
+      asCanvasCtx(ctx),
+      makeTile({ visualEffect: 'custom:0' }),
+      setOpaqueGrid('#ffffff'),
+      0,
+      0,
+      64,
+    );
+    expect(shadows).toContain('rgba(255, 90, 0, 0.4)');
+  });
   it('computes tile pixel size from canvas width', () => {
     const canvas = document.createElement('canvas');
     canvas.width = 80;

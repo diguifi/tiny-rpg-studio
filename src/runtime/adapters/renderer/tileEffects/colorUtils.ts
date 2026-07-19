@@ -61,6 +61,13 @@ export function mixColors(a: string, b: string, t: number): string {
     return `rgb(${clampByte(ca.r + (cb.r - ca.r) * k)},${clampByte(ca.g + (cb.g - ca.g) * k)},${clampByte(ca.b + (cb.b - ca.b) * k)})`;
 }
 
+export function colorWithAlpha(color: string, alpha: number): string {
+    const rgb = parseColor(color);
+    if (!rgb) return color;
+    const normalizedAlpha = Math.max(0, Math.min(1, alpha));
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${normalizedAlpha})`;
+}
+
 /** Normalize labels the same way MovementManager does for water/lava categories. */
 export function normalizeTileLabel(value = ''): string {
     return value

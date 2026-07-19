@@ -746,7 +746,16 @@ class ShareDecoder {
                             ? BASE_TILE_EFFECT_IDS[index]
                             : undefined)
                         .filter((id): id is (typeof BASE_TILE_EFFECT_IDS)[number] => Boolean(id));
-                    return { id: `custom:${suffix}`, name, baseEffectIds: passes };
+                    const compactColor = values[3];
+                    const color = typeof compactColor === 'string' && /^[0-9a-f]{6}$/i.test(compactColor)
+                        ? `#${compactColor}`
+                        : undefined;
+                    return {
+                        id: `custom:${suffix}`,
+                        name,
+                        baseEffectIds: passes,
+                        ...(color ? { color } : {}),
+                    };
                 })
                 : [];
             const customTileEffects = normalizeCustomTileEffects(rawDefinitions);

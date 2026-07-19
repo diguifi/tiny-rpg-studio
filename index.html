@@ -822,6 +822,11 @@
                     <canvas id="custom-effect-preview" width="192" height="192"></canvas>
                     <label for="custom-effect-name" data-text-key="customEffects.name">Effect name</label>
                     <input id="custom-effect-name" maxlength="8" autocomplete="off" data-placeholder-key="customEffects.namePlaceholder" placeholder="My effect">
+                    <div id="custom-effect-color-control" class="custom-effect-color-control" hidden>
+                        <label for="custom-effect-color" data-text-key="customEffects.color">Effect color</label>
+                        <input id="custom-effect-color" type="color" value="#FF5A00" disabled>
+                        <small class="custom-effect-help" data-text-key="customEffects.colorHelp">One color affects every tint and glow pass in this effect.</small>
+                    </div>
                 </section>
                 <section>
                     <h3 data-text-key="customEffects.selected">Selected order</h3>

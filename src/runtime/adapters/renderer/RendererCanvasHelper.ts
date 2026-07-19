@@ -16,6 +16,7 @@ import {
     getCustomTileEffect,
     type BaseTileEffectId,
     type BuiltInTileVisualEffectKind,
+    type CustomTileEffectColor,
     type CustomTileEffectDefinition,
 } from '../../domain/definitions/customTileEffects';
 
@@ -241,7 +242,8 @@ class RendererCanvasHelper {
         tile: TileDefinition | null,
         baseEffectIds: readonly BaseTileEffectId[],
         frameOverride = 0,
-        timeMs = this.tileEffects.getTimeMs()
+        timeMs = this.tileEffects.getTimeMs(),
+        customColor?: CustomTileEffectColor
     ): void {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -251,7 +253,17 @@ class RendererCanvasHelper {
         const size = Math.max(8, Math.floor(Math.min(canvas.width, canvas.height) * 0.6 / 8) * 8);
         const px = Math.floor((canvas.width - size) / 2);
         const py = Math.floor((canvas.height - size) / 2);
-        this.tileEffects.paintCustomPreview(this, ctx, pixels, px, py, size, baseEffectIds, timeMs);
+        this.tileEffects.paintCustomPreview(
+            this,
+            ctx,
+            pixels,
+            px,
+            py,
+            size,
+            baseEffectIds,
+            timeMs,
+            customColor
+        );
     }
 
     /**

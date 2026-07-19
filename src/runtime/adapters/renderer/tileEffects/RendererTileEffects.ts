@@ -11,6 +11,7 @@ import {
     getCustomTileEffect,
     isCustomTileEffectId,
     type BaseTileEffectId,
+    type CustomTileEffectColor,
 } from '../../../domain/definitions/customTileEffects';
 import { paintBaseTileEffectComposition } from './baseEffectRegistry';
 import type {
@@ -99,7 +100,10 @@ class RendererTileEffects {
         const customDefinition = getCustomTileEffect(customTileEffects, effectId);
         if (customDefinition) {
             try {
-                paintBaseTileEffectComposition(context, customDefinition.baseEffectIds);
+                paintBaseTileEffectComposition(
+                    { ...context, customColor: customDefinition.color },
+                    customDefinition.baseEffectIds
+                );
             } catch {
                 host.drawPixelGrid(ctx, pixels, px, py, step);
             }
@@ -123,11 +127,12 @@ class RendererTileEffects {
         py: number,
         size: number,
         baseEffectIds: readonly BaseTileEffectId[],
-        timeMs = this.getTimeMs()
+        timeMs = this.getTimeMs(),
+        customColor?: CustomTileEffectColor
     ): void {
         const step = Math.max(1, Math.floor(size / 8));
         paintBaseTileEffectComposition(
-            { ctx, host, pixels, px, py, step, size, timeMs },
+            { ctx, host, pixels, px, py, step, size, timeMs, customColor },
             baseEffectIds
         );
     }

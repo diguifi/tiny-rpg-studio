@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { paintCalmWave } from '../../runtime/adapters/renderer/tileEffects/baseEffects/calmWaveEffect';
 import { paintChoppyWave } from '../../runtime/adapters/renderer/tileEffects/baseEffects/choppyWaveEffect';
+import { paintCoolTint } from '../../runtime/adapters/renderer/tileEffects/baseEffects/coolTintEffect';
 import { paintDeepTint } from '../../runtime/adapters/renderer/tileEffects/baseEffects/deepTintEffect';
 import { paintDiagonalOutline } from '../../runtime/adapters/renderer/tileEffects/baseEffects/diagonalOutlineEffect';
 import { paintGentleRidge } from '../../runtime/adapters/renderer/tileEffects/baseEffects/gentleRidgeEffect';
+import { paintGlow } from '../../runtime/adapters/renderer/tileEffects/baseEffects/glowEffect';
 import { paintInnerOutline } from '../../runtime/adapters/renderer/tileEffects/baseEffects/innerOutlineEffect';
 import { paintIntenseGlow } from '../../runtime/adapters/renderer/tileEffects/baseEffects/intenseGlowEffect';
 import { paintMurkyTint } from '../../runtime/adapters/renderer/tileEffects/baseEffects/murkyTintEffect';
@@ -69,6 +71,65 @@ function makePaintContext(
 }
 
 describe('standalone base effects', () => {
+  function capturePaintColors(painter: TileEffectPainter, customColor?: '#00FF7F') {
+    const ctx = makeCanvasContext();
+    const fillStyles: string[] = [];
+    const shadowColors: string[] = [];
+    Object.defineProperty(ctx, 'fillStyle', {
+      configurable: true,
+      get: () => fillStyles.at(-1) ?? '',
+      set: (value: string) => fillStyles.push(value),
+    });
+    Object.defineProperty(ctx, 'shadowColor', {
+      configurable: true,
+      get: () => shadowColors.at(-1) ?? '',
+      set: (value: string) => shadowColors.push(value),
+    });
+    painter({ ...makePaintContext(ctx), customColor });
+    return { fillStyles, shadowColors };
+  }
+
+  it('keeps exact legacy tint and glow styles when no custom color is supplied', () => {
+    expect(capturePaintColors(paintCoolTint).fillStyles).toEqual([
+      'rgba(30, 110, 200, 0.14)', 'rgba(90, 170, 230, 0.18)',
+    ]);
+    expect(capturePaintColors(paintDeepTint).fillStyles).toEqual([
+      'rgba(10, 45, 120, 0.28)', 'rgba(45, 110, 190, 0.14)',
+    ]);
+    expect(capturePaintColors(paintMurkyTint).fillStyles).toEqual([
+      'rgba(65, 100, 70, 0.22)', 'rgba(155, 145, 80, 0.12)',
+    ]);
+    expect(capturePaintColors(paintGlow)).toEqual({
+      fillStyles: ['rgba(255, 180, 40, 0.32)', 'rgba(255, 240, 120, 0.2)'],
+      shadowColors: ['rgba(255, 90, 0, 0.4)', 'rgba(255, 240, 120, 0.2)'],
+    });
+    expect(capturePaintColors(paintSoftGlow)).toEqual({
+      fillStyles: ['rgba(255, 175, 65, 0.2)', 'rgba(255, 225, 135, 0.12)'],
+      shadowColors: ['rgba(255, 110, 30, 0.24)', 'rgba(255, 225, 135, 0.12)'],
+    });
+    expect(capturePaintColors(paintIntenseGlow)).toEqual({
+      fillStyles: ['rgba(255, 145, 20, 0.48)', 'rgba(255, 245, 170, 0.34)'],
+      shadowColors: ['rgba(255, 45, 0, 0.62)', 'rgba(255, 245, 170, 0.34)'],
+    });
+  });
+
+  it('derives distinct tint and glow layers from one supplied custom color', () => {
+    for (const painter of [
+      paintCoolTint,
+      paintDeepTint,
+      paintMurkyTint,
+      paintGlow,
+      paintSoftGlow,
+      paintIntenseGlow,
+    ]) {
+      const { fillStyles, shadowColors } = capturePaintColors(painter, '#00FF7F');
+      const colors = [...fillStyles, ...shadowColors];
+      expect(new Set(colors).size).toBeGreaterThan(1);
+      expect(colors.every((color) => color.startsWith('rgba('))).toBe(true);
+      expect(colors.some((color) => color.includes('255, 90, 0'))).toBe(false);
+    }
+  });
+
   it('reflects a sprite upward across a target tile bottom edge without flipping its rows', () => {
     const ctx = makeCanvasContext();
     const host = makeHost();
