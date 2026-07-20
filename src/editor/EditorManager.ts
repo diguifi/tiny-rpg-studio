@@ -13,6 +13,7 @@ import { EditorNpcService } from './modules/EditorNpcService';
 import { EditorObjectService } from './modules/EditorObjectService';
 import { EditorPaletteService } from './modules/EditorPaletteService';
 import { EditorCustomSpritesService } from './modules/EditorCustomSpritesService';
+import { EditorCustomEffectsService } from './modules/EditorCustomEffectsService';
 import { EditorRenderService } from './modules/EditorRenderService';
 import { EditorShareService } from './modules/EditorShareService';
 import { EditorState } from './modules/EditorState';
@@ -47,6 +48,7 @@ class EditorManager {
     variableService: EditorVariableService;
     paletteService: EditorPaletteService;
     customSpritesService: EditorCustomSpritesService;
+    customEffectsService: EditorCustomEffectsService;
     worldService: EditorWorldService;
     uiController: EditorUIController;
     eventBinder: EditorEventBinder;
@@ -80,6 +82,7 @@ class EditorManager {
         this.variableService = new EditorVariableService(this);
         this.paletteService = new EditorPaletteService(this);
         this.customSpritesService = new EditorCustomSpritesService(this);
+        this.customEffectsService = new EditorCustomEffectsService(this);
         this.worldService = new EditorWorldService(this);
         this.uiController = new EditorUIController(this);
         this.eventBinder = new EditorEventBinder(this);
@@ -255,6 +258,7 @@ class EditorManager {
         this.gameEngine.npcManager.ensureDefaultNPCs();
         this.paletteService.initialize();
         this.customSpritesService.initialize();
+        this.customEffectsService.initialize();
         this.renderService.initSkillEditModal();
 
         // Render navigation icons with engine tiles

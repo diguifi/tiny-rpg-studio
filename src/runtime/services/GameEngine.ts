@@ -20,6 +20,7 @@ import { BackgroundMusicEngine } from './BackgroundMusicEngine';
 import { performanceProfiler } from '../debug/PerformanceProfiler';
 import {
   createCustomTileEffect,
+  isCustomTileEffectId,
   normalizeCustomTileEffects,
   type BaseTileEffectId,
   type CreateCustomTileEffectResult,
@@ -412,6 +413,15 @@ export class GameEngine {
       if (tile.visualEffect === id) tile.visualEffect = 'none';
     }
     return true;
+  }
+
+  replaceCustomTileEffects(definitions: readonly CustomTileEffectDefinition[]): void {
+    const game = this.gameState.getGame();
+    for (const tile of game.tileset.tiles) {
+      if (isCustomTileEffectId(tile.visualEffect)) tile.visualEffect = 'none';
+    }
+    const normalized = normalizeCustomTileEffects(definitions);
+    game.customTileEffects = normalized.length ? normalized : undefined;
   }
 
   importGameData(data: unknown): void {

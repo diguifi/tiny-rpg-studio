@@ -4762,6 +4762,8 @@ body.game-mode .tab-button.active {
 .custom-effect-row button { flex: 0 0 auto; }
 .custom-effect-help { display: block; max-width: 18rem; color: var(--muted); line-height: 1.3; }
 .custom-effect-empty { color: var(--muted); }
+.custom-effects-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.custom-effects-actions > button { flex: 1 1 140px; }
 .custom-effect-preview-column { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
 #custom-effect-preview { align-self: center; width: min(192px, 100%); height: auto; image-rendering: pixelated; background: var(--bg); }
 #custom-effect-name { padding: 6px 8px; border: 2px solid var(--border); background: var(--bg); color: var(--text); }

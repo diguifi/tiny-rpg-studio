@@ -140,6 +140,11 @@ type GameEngineApi = {
     color?: '#00FF7F',
   ) => { ok: boolean; definition?: { color?: string } };
   deleteCustomTileEffect: (id: `custom:${string}`) => boolean;
+  replaceCustomTileEffects: (definitions: Array<{
+    id: `custom:${string}`;
+    name: string;
+    baseEffectIds: ['glow'];
+  }>) => void;
 };
 
 type GameEngineCtor = new (canvas: HTMLCanvasElement) => GameEngineApi;
@@ -174,6 +179,29 @@ describe('GameEngine business rules (legacy)', () => {
     expect(game.customTileEffects).toBeUndefined();
     expect(game.tileset.tiles.map((tile) => tile.visualEffect)).toEqual(['none', 'water']);
     expect(engine.deleteCustomTileEffect('custom:missing')).toBe(false);
+  });
+
+  it('replaces custom effects and clears custom assignments while preserving built-ins', () => {
+    const engine = createEngine();
+    const game = engine.gameState.state.game;
+    game.customTileEffects = [{ id: 'custom:0', name: 'Old', baseEffectIds: ['glow'] }];
+    game.tileset = { tiles: [
+      { id: 0, visualEffect: 'custom:0' },
+      { id: 1, visualEffect: 'water' },
+      { id: 2, visualEffect: 'lava' },
+      { id: 3, visualEffect: 'none' },
+    ] };
+
+    engine.replaceCustomTileEffects([
+      { id: 'custom:0', name: 'New', baseEffectIds: ['glow'] },
+    ]);
+
+    expect(game.customTileEffects).toEqual([
+      { id: 'custom:0', name: 'New', baseEffectIds: ['glow'] },
+    ]);
+    expect(game.tileset.tiles.map((tile) => tile.visualEffect)).toEqual([
+      'none', 'water', 'lava', 'none',
+    ]);
   });
   it('bootstraps subsystems and initializes intro state', () => {
     const engine = createEngine()

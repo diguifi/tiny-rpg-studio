@@ -117,6 +117,24 @@ describe('CustomTileEffectEditorController', () => {
     controller.close();
   });
 
+  it('renders every newly imported effect the next time the modal opens', () => {
+    const { controller, game } = setup();
+    controller.open();
+    controller.close();
+    game.customTileEffects = [
+      { id: 'custom:0', name: 'Ripple', baseEffectIds: ['glow'] },
+      { id: 'custom:1', name: 'Stars', baseEffectIds: ['sparkle'] },
+    ];
+
+    controller.open();
+
+    expect(Array.from(document.querySelectorAll('#custom-effect-saved span')).map((node) => node.textContent)).toEqual([
+      'Ripple', 'Stars',
+    ]);
+    expect(document.querySelectorAll('[data-delete-custom-effect-id]')).toHaveLength(2);
+    controller.close();
+  });
+
   it('keeps validation errors open and saves with one render/JSON/history update', () => {
     const { controller, manager, createCustomTileEffect } = setup();
     controller.open();
