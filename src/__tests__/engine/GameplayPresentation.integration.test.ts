@@ -6,7 +6,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { GameEngine } from '../../runtime/services/GameEngine';
 import { GameplayPluginHost, type GameplayContext } from '../../runtime/infra/GameplayPluginHost';
 import { parsePluginHtml } from '../../editor/manager/PluginManager';
-import source from '../../../public/plugins/3d-renderer/1.1.0/plugin.html?raw';
+import source from '../../../public/plugins/3d-renderer/1.1.1/plugin.html?raw';
+import type { GameplayBillboard, GameplayScene } from '../../runtime/adapters/renderer/GameplayPresentation';
 
 let engine: GameEngine;
 beforeEach(() => {
@@ -31,6 +32,86 @@ const activate = async (isCurrent: () => boolean = () => true) => {
 };
 
 const turn = (direction: 'left' | 'right') => { engine.handleGameplayDirection(direction); vi.advanceTimersByTime(300); };
+
+const capturePresentation = () => {
+    let image!: ImageData;
+    const buffer = {
+        createImageData: (width: number, height: number) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
+        putImageData: (frame: ImageData) => { image = frame; },
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValueOnce(buffer as unknown as CanvasRenderingContext2D);
+    const scene: GameplayScene = {
+        ...engine.getGameplayScene(),
+        cells: engine.getGameplayScene().cells.map(() => ({ solid: false, blocked: false, wall: null, floor: [['#0000ff']], color: '#0000ff' })),
+        entities: [], ceiling: '#000000', floor: '#000000', boundary: '#000000',
+    };
+    const draw = (entities: GameplayBillboard[], timeMs = 0, cells = scene.cells) => {
+        const ctx = engine.renderer.ctx;
+        if (!ctx) throw Error('Missing rendering context');
+        const animating = engine.renderer.gameplayPresentation?.draw({
+            ctx, width: 160, height: 160, scene: { ...scene, entities, cells }, timeMs,
+            feedback: { playerFlash: null, attacking: false, texts: [], particles: [] },
+        });
+        const redPixels: { x: number; y: number }[] = [];
+        for (let y = 0; y < 160; y++) for (let x = 0; x < 160; x++) {
+            const offset = (y * 160 + x) * 4;
+            if (image.data[offset] > image.data[offset + 2]) redPixels.push({ x, y });
+        }
+        return { animating, redPixels, pixels: Array.from(image.data) };
+    };
+    return { draw, scene };
+};
+
+it.each(['key', 'life-potion', 'xp-scroll', 'sword', 'sword-bronze', 'sword-wood', 'armor', 'boots'])(
+    'bobs %s in perspective and requests more frames while the player stands still', async type => {
+        await activate();
+        const { draw } = capturePresentation();
+        const entity: GameplayBillboard = { id: 'pickup', kind: 'object', type, x: 3.5, y: 1.5, localX: 3, localY: 1, pixels: [['#ff0000']] };
+        const phase = (3 * 0.7 + 1 * 1.3) * 0.6;
+        const firstTime = (Math.PI * 2 - phase) / 0.003;
+        const first = draw([entity], firstTime);
+        const second = draw([entity], firstTime + Math.PI / 2 / 0.003);
+        expect(first.animating).toBe(true); expect(second.animating).toBe(true);
+        expect(second.redPixels[0].y - first.redPixels[0].y).toBeCloseTo((160 / (2 * Math.tan(Math.PI / 6)) / 2) * 0.12, 0);
+        expect(draw([{ ...entity, kind: 'item' }], firstTime).animating).toBe(true);
+        expect(draw([], firstTime).animating).toBe(false);
+    },
+);
+
+it.each(['chest', 'push-box', 'switch', 'door', 'trap'])('keeps %s stationary', async type => {
+    await activate();
+    const { draw } = capturePresentation();
+    const entity: GameplayBillboard = { id: 'static', kind: 'object', type, x: 3.5, y: 1.5, pixels: [['#ff0000']] };
+    const first = draw([entity]);
+    expect(first.animating).toBe(false);
+    expect(draw([entity], 500).pixels).toEqual(first.pixels);
+});
+
+it('lays pressure plates on the floor with transparent artwork, live states, wall occlusion and boxes above them', async () => {
+    await activate();
+    const plate = engine.gameState.objectManager.setObjectPosition('pressure-plate', 0, 3, 1);
+    if (!plate) throw Error('Missing plate');
+    plate.variableId = 'var-1';
+    const off = engine.getGameplayScene().entities.find(entity => entity.type === 'pressure-plate');
+    engine.gameState.setVariableValue('var-1', true);
+    const on = engine.getGameplayScene().entities.find(entity => entity.type === 'pressure-plate');
+    if (!off || !on) throw Error('Missing pressure plate presentation');
+    expect(on.pixels).not.toEqual(off.pixels);
+    const { draw, scene } = capturePresentation();
+    const entity: GameplayBillboard = { ...off, pixels: [['#ff0000', null], ['#ff0000', null]] };
+    const rendered = draw([entity]);
+    expect(rendered.animating).toBe(false);
+    expect(rendered.redPixels.length).toBeGreaterThan(0);
+    expect(rendered.redPixels.every(pixel => pixel.y > 80 && pixel.x < 80)).toBe(true);
+    const full = { ...entity, pixels: [['#ff0000']] };
+    expect(draw([full]).redPixels.length).toBeGreaterThan(rendered.redPixels.length);
+    const box: GameplayBillboard = { ...full, id: 'box', type: 'push-box', pixels: [['#0000ff']] };
+    const underBox = draw([box, full]).redPixels;
+    expect(underBox.length).toBeLessThan(draw([full]).redPixels.length);
+    expect(underBox.every(pixel => pixel.y >= 114)).toBe(true);
+    const cells = scene.cells.map((cell, index) => index === 2 * scene.width + 3 ? { ...cell, solid: true, wall: [['#0000ff']] } : cell);
+    expect(draw([full], 0, cells).redPixels).toHaveLength(0);
+});
 
 it('exposes original layers, room bounds, tile animation/effects, player artwork and status as detached snapshots', () => {
     const game = engine.gameState.game;

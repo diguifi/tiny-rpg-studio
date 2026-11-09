@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import source from '../../../public/plugins/3d-renderer/1.1.0/plugin.html?raw';
+import source from '../../../public/plugins/3d-renderer/1.1.1/plugin.html?raw';
 import { PluginManager, parsePluginHtml } from '../../editor/manager/PluginManager';
 import { PluginRuntime, type PluginModule } from '../../editor/manager/PluginRuntime';
 import type { TinyRpgApi } from '../../runtime/infra/TinyRpgApi';

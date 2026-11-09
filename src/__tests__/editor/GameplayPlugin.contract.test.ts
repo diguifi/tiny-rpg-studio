@@ -4,7 +4,7 @@ import { StateWorldManager } from '../../runtime/domain/state/StateWorldManager'
 import { StateDataManager } from '../../runtime/domain/state/StateDataManager';
 import type { GameDefinition } from '../../types/gameState';
 import { ShareUtils } from '../../runtime/infra/share/ShareUtils';
-import rendererSource from '../../../public/plugins/3d-renderer/1.1.0/plugin.html?raw';
+import rendererSource from '../../../public/plugins/3d-renderer/1.1.1/plugin.html?raw';
 import { assembleExportHtml } from '../../editor/modules/export/ExportHtmlAssembler';
 import type { GameplayPresentation } from '../../runtime/adapters/renderer/GameplayPresentation';
 import type { GameplayContext } from '../../runtime/infra/GameplayPluginHost';

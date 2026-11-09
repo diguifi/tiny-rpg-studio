@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import source from '../../../public/plugins/3d-renderer/1.1.0/plugin.html?raw';
+import source from '../../../public/plugins/3d-renderer/1.1.1/plugin.html?raw';
 import { parsePluginHtml } from '../../editor/manager/PluginManager';
 import { applyInstalled3dRenderer } from '../../editor/manager/applyInstalled3dRenderer';
 import type { GameplayContext } from '../../runtime/infra/GameplayPluginHost';
