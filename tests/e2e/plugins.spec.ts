@@ -106,7 +106,7 @@ test('3D Renderer installs from the catalog, preserves authoring, navigates by k
     const { getTinyRpgApi } = await import('/src/runtime/infra/TinyRpgApi.ts');
     return getTinyRpgApi().exportGameData().gameplayPlugins ?? [];
   });
-  await expect.poll(dependency).toEqual([{ id: '3d-renderer', version: '1.0.0' }]);
+  await expect.poll(dependency).toEqual([{ id: '3d-renderer', version: '1.2.0' }]);
   expect(await editorImage()).toBe(editorBefore);
   expect(await page.evaluate(() => Reflect.get(window, 'before3d') === document.querySelector('#editor-canvas'))).toBe(true);
   await page.click('[data-project-tab-button="plugins"]');
@@ -165,7 +165,7 @@ test('3D Renderer installs from the catalog, preserves authoring, navigates by k
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload(); await page.click('button[data-tab="editor"]');
-  await expect.poll(dependency).toEqual([{ id: '3d-renderer', version: '1.0.0' }]);
+  await expect.poll(dependency).toEqual([{ id: '3d-renderer', version: '1.2.0' }]);
   await page.click('[data-project-tab-button="plugins"]');
   await expect(page.getByLabel('Top void', { exact: true })).toHaveValue('8');
   await expect(page.getByLabel('Bottom void', { exact: true })).toHaveValue('12');
@@ -175,7 +175,7 @@ test('3D Renderer installs from the catalog, preserves authoring, navigates by k
     other.gameplayPlugins = []; delete other.pluginData; other.title = 'Another project';
     await api.loadProjectData(other);
   });
-  await expect.poll(dependency).toEqual([{ id: '3d-renderer', version: '1.0.0' }]);
+  await expect.poll(dependency).toEqual([{ id: '3d-renderer', version: '1.2.0' }]);
   await expect(page.getByLabel('Top void', { exact: true })).toHaveValue('');
   await expect(page.getByLabel('Bottom void', { exact: true })).toHaveValue('');
   await page.click('#btn-reset');
@@ -183,7 +183,7 @@ test('3D Renderer installs from the catalog, preserves authoring, navigates by k
     const { getTinyRpgApi } = await import('/src/runtime/infra/TinyRpgApi.ts');
     return getTinyRpgApi().exportGameData().title;
   })).not.toBe('Another project');
-  await expect.poll(dependency).toEqual([{ id: '3d-renderer', version: '1.0.0' }]);
+  await expect.poll(dependency).toEqual([{ id: '3d-renderer', version: '1.2.0' }]);
   await page.click('#btn-plugins'); await page.click('#plugins-manage');
   await page.locator('[data-plugin-id="3d-renderer"] [data-action="remove"]').click();
   await page.click('#plugins-modal .tiny-modal__close');
@@ -192,7 +192,7 @@ test('3D Renderer installs from the catalog, preserves authoring, navigates by k
   await page.click('#btn-plugins'); await page.fill('#plugins-query', '3D Renderer');
   await page.locator('[data-plugin-id="3d-renderer"] [data-action="install"]').click();
   await page.click('#plugins-modal .tiny-modal__close');
-  await expect.poll(dependency).toEqual([{ id: '3d-renderer', version: '1.0.0' }]);
+  await expect.poll(dependency).toEqual([{ id: '3d-renderer', version: '1.2.0' }]);
   expect(errors).toEqual([]);
 });
 
@@ -583,3 +583,97 @@ test('Minimalist UI simplifies catalogs and pixel editing, then restores on remo
   await expect(page.locator('[data-text-key="pixelArtEditor.mergeEdges"]')).toBeVisible();
   await expect(page.locator('label[for="pae-tile-merge-edges"]')).toHaveText('Mesclar');
 });
+
+
+for (const mouseSupport of [false, true]) {
+  test(`Smooth Movement persists and travels continuously in editor and offline HTML with mouse ${mouseSupport} at /studio/`, async ({ page, browser }, testInfo) => {
+    test.skip(!testInfo.project.metadata.pluginsProduction, 'Uses the production plugin deployment');
+    const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+    // Observe the supported context without exposing engine internals in production.
+    await page.route('**/plugins/3d-renderer/1.2.0/plugin.html', async route => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace('export function activate(context) {',
+        'export function activate(context) { globalThis.__smoothPosition = () => context.getMovementState();');
+      await route.fulfill({ response, body });
+    });
+    await page.goto('/studio/');
+    await page.evaluate(() => {
+      const game = { title: 'Smooth corridor', start: { roomIndex: 1, x: 3, y: 3 },
+        sprites: [], enemies: [], objects: [], items: [], exits: [], world: { rows: 3, cols: 3 },
+        rooms: Array.from({ length: 9 }, (_, index) => ({ id: `room-${index}`, bg: 0,
+          walls: Array.from({ length: 8 }, (_, y) => Array.from({ length: 8 }, (_, x) => index === 1 && y === 3 && x === 5)) })) };
+      localStorage.setItem('tiny-rpg-projects-history', JSON.stringify({ projects: [{ id: 'smooth', title: game.title, savedAt: Date.now(), shareUrl: `snapshot:${JSON.stringify(game)}` }], lastAutoSaveTime: 0 }));
+    });
+    await page.reload(); await page.click('button[data-tab="editor"]');
+    await page.click('#btn-plugins'); await page.fill('#plugins-query', '3D Renderer');
+    await page.locator('[data-plugin-id="3d-renderer"] [data-action="install"]').click();
+    await page.click('#plugins-modal .tiny-modal__close');
+    await page.click('[data-project-tab-button="plugins"]');
+    await expect(page.getByLabel('Distance gradient', { exact: true })).toHaveValue('0');
+    await expect(page.getByLabel('Smooth Movement', { exact: true })).not.toBeChecked();
+    await page.getByLabel('Smooth Movement', { exact: true }).check();
+    await expect(page.getByLabel('Smooth Movement', { exact: true })).toBeEnabled();
+    if (mouseSupport) {
+      await page.getByLabel('Mouse Support', { exact: true }).check();
+      await expect(page.getByLabel('Mouse Support', { exact: true })).toBeEnabled();
+    }
+    await page.getByLabel('Initial direction', { exact: true }).selectOption('1');
+    await expect(page.getByLabel('Initial direction', { exact: true })).toBeEnabled();
+    await page.reload(); await page.click('button[data-tab="editor"]');
+    await page.click('[data-project-tab-button="plugins"]');
+    await expect(page.getByLabel('Smooth Movement', { exact: true })).toBeChecked();
+    await page.click('[data-project-tab-button="export"]');
+    await expect(page.locator('#btn-generate-url')).toBeDisabled();
+    const [download] = await Promise.all([page.waitForEvent('download'), page.click('#btn-generate-html')]);
+    const filename = testInfo.outputPath('smooth.html'); await download.saveAs(filename);
+    const position = (target: Page) => target.evaluate(() => {
+      const get = Reflect.get(globalThis, '__smoothPosition') as () => { x: number; y: number; canMove: boolean };
+      const { x, y } = get(); return { x, y };
+    });
+    const exercise = async (target: Page) => {
+      await target.keyboard.press('Enter'); await target.waitForTimeout(50);
+      expect(await position(target)).toEqual({ x: 11.5, y: 3.5 });
+      await target.keyboard.down('w'); await target.waitForTimeout(400); await target.keyboard.up('w');
+      expect(await position(target)).toEqual({ x: 12.5, y: 3.5 });
+      const stopped = await target.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+      await target.waitForTimeout(80);
+      expect(await target.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())).toBe(stopped);
+      await target.keyboard.down('s'); await target.waitForTimeout(950); await target.keyboard.up('s');
+      expect((await position(target)).x).toBeLessThan(8);
+      const up = target.locator('.game-touch-pad .pad-button[data-direction="up"]');
+      const before = await position(target);
+      await up.dispatchEvent('pointerdown', { button: 0, pointerId: 7 });
+      await target.waitForTimeout(250);
+      await up.dispatchEvent('pointerup', { button: 0, pointerId: 7 });
+      expect((await position(target)).x).toBeGreaterThan(before.x);
+      await target.keyboard.down('ArrowRight'); await target.waitForTimeout(180); await target.keyboard.up('ArrowRight');
+      const turned = await position(target);
+      if (mouseSupport) {
+        await target.locator('#game-canvas').click();
+        await target.keyboard.down('w');
+        const box = await target.locator('#game-canvas').boundingBox();
+        if (!box) throw Error('Missing game canvas');
+        await target.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.5);
+        await target.waitForTimeout(300); await target.keyboard.up('w');
+        await target.keyboard.press('Escape');
+        await target.evaluate(() => document.exitPointerLock());
+      } else {
+        await target.keyboard.down('w'); await target.waitForTimeout(300); await target.keyboard.up('w');
+      }
+      expect(await position(target)).not.toEqual(turned);
+    };
+    await page.click('button[data-tab="game"]'); await exercise(page);
+    const offline = await browser.newContext({ offline: true });
+    const exported = await offline.newPage(); exported.on('pageerror', error => errors.push(error.message));
+    await exported.goto(`file:///${path.resolve(filename).replaceAll('\\', '/')}`);
+    await exported.waitForFunction(() => typeof Reflect.get(globalThis, '__smoothPosition') === 'function');
+    await exercise(exported); await offline.close();
+    await page.click('button[data-tab="editor"]'); await page.click('#btn-plugins'); await page.click('#plugins-manage');
+    await page.locator('[data-plugin-id="3d-renderer"] [data-action="remove"]').click();
+    await page.click('#plugins-modal .tiny-modal__close');
+    await page.click('[data-project-tab-button="export"]'); await expect(page.locator('#btn-generate-url')).toBeEnabled();
+    await page.click('button[data-tab="game"]');
+    await page.keyboard.press('ArrowUp');
+    expect(errors).toEqual([]);
+  });
+}

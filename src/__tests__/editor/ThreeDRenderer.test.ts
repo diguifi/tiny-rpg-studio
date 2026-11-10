@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import source from '../../../public/plugins/3d-renderer/1.1.1/plugin.html?raw';
+import source from '../../../public/plugins/3d-renderer/1.2.0/plugin.html?raw';
 import { parsePluginHtml } from '../../editor/manager/PluginManager';
 import { applyInstalled3dRenderer } from '../../editor/manager/applyInstalled3dRenderer';
 import type { GameplayContext } from '../../runtime/infra/GameplayPluginHost';
@@ -7,12 +7,12 @@ import type { GameplayFeedback, GameplayPresentation, GameplayScene } from '../.
 
 afterEach(() => vi.restoreAllMocks());
 
-const load = (getPresentationResources?: GameplayContext['getPresentationResources']) => {
+const load = (getPresentationResources?: GameplayContext['getPresentationResources'], bridge: Partial<GameplayContext> = {}) => {
     const plugin = parsePluginHtml(source);
     const factory = new Function((plugin.payload?.gameplayJavascript ?? '').replace('export function activate', 'function activate') + ';return activate;') as () => (context: Partial<GameplayContext>) => void;
     let presentation!: GameplayPresentation;
     const requests = vi.fn((command: Parameters<GameplayPresentation['direction']>[0]) => presentation.direction(command));
-    factory()({ requestGameplayDirection: requests, registerGameplayPresentation: provider => { presentation = provider; return () => {}; }, onCleanup: () => {}, requestRedraw: vi.fn(), getPresentationResources });
+    factory()({ requestGameplayDirection: requests, registerGameplayPresentation: provider => { presentation = provider; return () => {}; }, onCleanup: () => {}, requestRedraw: vi.fn(), getPresentationResources, ...bridge });
     return { plugin, presentation, requests };
 };
 
@@ -112,12 +112,12 @@ const scene = (): GameplayScene => ({
         wall: [['#ff0000']], floor: null, color: '#222222' })), entities: [],
 });
 
-const render = (getPresentationResources?: GameplayContext['getPresentationResources']) => {
+const render = (getPresentationResources?: GameplayContext['getPresentationResources'], bridge: Partial<GameplayContext> = {}) => {
     let data!: ImageData;
     let needsFrame: boolean | void;
     const buffer = { createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }), putImageData: (image: ImageData) => { data = image; } };
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(buffer as unknown as CanvasRenderingContext2D);
-    const { presentation, requests } = load(getPresentationResources);
+    const { presentation, requests } = load(getPresentationResources, bridge);
     const ctx = { drawImage: vi.fn(), save: vi.fn(), restore: vi.fn(), fillRect: vi.fn(), fillText: vi.fn() } as unknown as CanvasRenderingContext2D;
     const draw = (world: GameplayScene, playerHit?: GameplayFeedback['playerHit']) => {
         needsFrame = presentation.draw({ ctx, width: 320, height: 320, scene: world, feedback: { playerHit, playerFlash: null, attacking: false, texts: [], particles: [] } });
@@ -337,7 +337,7 @@ it('preserves floor visibility through several transparent walls, actual black p
     expect(at(80, 80)[2]).toBeGreaterThan(45);
     expect(at(80, 150)[1]).toBeGreaterThan(at(80, 150)[0]);
     for (let x = 0; x < 8; x++) cells[3 * 8 + x].wall = [['#000000']];
-    draw({ ...world, cells }); expect(at(80, 80)).toEqual([3, 3, 3]);
+    draw({ ...world, cells }); expect(at(80, 80)).toEqual([0, 0, 0]);
     draw({ ...world, cells: cells.map(cell => ({ ...cell, wall: null })) });
     const fallback = at(80, 80);
     expect(fallback[0]).toBeGreaterThan(0); expect(fallback[0]).toBe(fallback[1]); expect(fallback[1]).toBe(fallback[2]);
@@ -454,4 +454,113 @@ it('cancels a queued step on reset and moves immediately when already aligned', 
     view.presentation.look?.(Math.PI / 2);
     expect(view.presentation.direction('up')).toEqual([1, 0]);
     expect(view.presentation.direction('down')).toEqual([-1, 0]);
+});
+
+
+const smoothHarness = (blocked = false) => {
+    let position = { x: 5.5, y: 5.5, canMove: true };
+    const step = vi.fn((dx: number, dy: number) => {
+        if (!blocked) position = { ...position, x: position.x + dx, y: position.y + dy };
+        return { ...position, accepted: !blocked, interrupted: false };
+    });
+    const view = load(() => ({ palette: [], data: { smoothMovement: true, mouseSupport: true } }), {
+        getMovementState: () => ({ ...position }), requestPlayerStep: step,
+    });
+    return { ...view, step, position: () => position };
+};
+
+it('integrates arbitrary forward/backward travel and turning without compass snapping', () => {
+    const { presentation: p, position, step } = smoothHarness();
+    expect(p.movement?.('up', 0)).toBe(true);
+    p.look?.(Math.PI / 4);
+    for (let i = 0; i < 15; i++) p.movement?.('up', 10);
+    expect(position()).toMatchObject({ x: 6.5, y: 4.5 });
+    expect(step.mock.calls).toEqual([[1, 0], [0, -1]]);
+    for (let i = 0; i < 15; i++) p.movement?.('down', 10);
+    expect(position()).toMatchObject({ x: 5.5, y: 5.5 });
+    p.movement?.('right', 60);
+    p.movement?.('up', 100);
+    expect(position().x).toBe(6.5);
+});
+
+it.each([10, 20, 50])('travels equal distance with %s ms updates and throttles blocked attempts', delta => {
+    const { presentation: p, position } = smoothHarness();
+    for (let i = 0; i < 300 / delta; i++) p.movement?.('up', delta);
+    expect(position().y).toBe(3.5);
+    const blocked = smoothHarness(true);
+    for (let i = 0; i < 30; i++) blocked.presentation.movement?.('up', 10);
+    expect(blocked.position().y).toBe(5.5);
+    expect(blocked.step.mock.calls.length).toBeLessThanOrEqual(2);
+});
+
+
+it('renders fractional travel, preserves release offsets, and resets without changing the scene', () => {
+    const world = scene(); const original = structuredClone(world);
+    const position = { x: world.player.x, y: world.player.y, canMove: true };
+    const view = render(() => ({ palette: [], data: { smoothMovement: true } }), {
+        getMovementState: () => position, requestPlayerStep: vi.fn(),
+    });
+    const initial = Array.from(view.draw(world).data);
+    view.presentation.movement?.('up', 30);
+    const offset = Array.from(view.draw(world).data); expect(offset).not.toEqual(initial);
+    view.presentation.movement?.(null, 0);
+    expect(Array.from(view.draw(world).data)).toEqual(offset);
+    expect(world).toEqual(original);
+    view.presentation.reset(); expect(Array.from(view.draw(world).data)).toEqual(initial);
+});
+
+it('slides along a rejected axis with deterministic X then Y corner attempts', () => {
+    let position = { x: 5.5, y: 5.5, canMove: true };
+    const step = vi.fn((dx: number, dy: number) => {
+        if (dx === 0) position = { ...position, y: position.y + dy };
+        return { ...position, accepted: dx === 0, interrupted: false };
+    });
+    const { presentation: p } = load(() => ({ palette: [], data: { smoothMovement: true, mouseSupport: true } }), {
+        getMovementState: () => position, requestPlayerStep: step,
+    });
+    p.look?.(Math.PI / 4);
+    for (let i = 0; i < 30; i++) p.movement?.('up', 10);
+    expect(position).toMatchObject({ x: 5.5, y: 4.5 });
+    expect(step.mock.calls.slice(0, 2)).toEqual([[1, 0], [0, -1]]);
+    expect(step.mock.calls.length).toBeLessThanOrEqual(3);
+});
+
+it('stops on relocation or cleanup during a tile attempt', () => {
+    let position = { x: 5.5, y: 5.5, canMove: true };
+    let cleanup = () => {};
+    const step = vi.fn(() => {
+        position = { x: 20.5, y: 20.5, canMove: true };
+        cleanup();
+        return { ...position, accepted: false, interrupted: true };
+    });
+    const { presentation: p } = load(() => ({ palette: [], data: { smoothMovement: true, mouseSupport: true } }), {
+        onCleanup: callback => { cleanup = callback; }, getMovementState: () => position, requestPlayerStep: step,
+    });
+    p.look?.(Math.PI / 4); p.movement?.('up', 100); p.movement?.('up', 100);
+    expect(step).toHaveBeenCalledOnce(); expect(p.movement?.('up', 100)).toBe(false);
+});
+
+it('discards an update when the runtime resets presentation during a successful step', () => {
+    let position = { x: 5.5, y: 5.5, canMove: true };
+    const step = vi.fn((dx: number, dy: number) => {
+        position = { ...position, x: position.x + dx, y: position.y + dy };
+        p.reset(); return { ...position, accepted: true, interrupted: false };
+    });
+    const p = load(() => ({ palette: [], data: { smoothMovement: true } }), {
+        getMovementState: () => position, requestPlayerStep: step,
+    }).presentation;
+    expect(() => p.movement?.('up', 100)).not.toThrow();
+    expect(step).toHaveBeenCalledOnce();
+});
+
+
+it('defaults distance gradient to zero in gameplay and honors an explicitly saved intensity', () => {
+    const data: { distanceGradient?: number } = {};
+    const view = render(() => ({ palette: [], data }));
+    const world = scene();
+    const defaults = Array.from(view.draw(world).data);
+    data.distanceGradient = 0;
+    expect(Array.from(view.draw(world).data)).toEqual(defaults);
+    data.distanceGradient = 1;
+    expect(Array.from(view.draw(world).data)).not.toEqual(defaults);
 });

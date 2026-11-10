@@ -4,7 +4,7 @@ import { StateWorldManager } from '../../runtime/domain/state/StateWorldManager'
 import { StateDataManager } from '../../runtime/domain/state/StateDataManager';
 import type { GameDefinition } from '../../types/gameState';
 import { ShareUtils } from '../../runtime/infra/share/ShareUtils';
-import rendererSource from '../../../public/plugins/3d-renderer/1.1.1/plugin.html?raw';
+import rendererSource from '../../../public/plugins/3d-renderer/1.2.0/plugin.html?raw';
 import { assembleExportHtml } from '../../editor/modules/export/ExportHtmlAssembler';
 import type { GameplayPresentation } from '../../runtime/adapters/renderer/GameplayPresentation';
 import type { GameplayContext } from '../../runtime/infra/GameplayPluginHost';
@@ -16,7 +16,7 @@ it('persists renderer dependencies with the complete gameplay package and keeps 
   const manager = new PluginManager();
   const renderer = parsePluginHtml(rendererSource);
   manager.install(renderer);
-  const project = applyInstalled3dRenderer({ title: '3D project', pluginData: { '3d-renderer': { topColor: 0, bottomColor: 12, mouseSupport: true } } }, manager.installed);
+  const project = applyInstalled3dRenderer({ title: '3D project', pluginData: { '3d-renderer': { topColor: 0, bottomColor: 12, mouseSupport: true, smoothMovement: true } } }, manager.installed);
   const snapshot = ShareUtils.buildStoredProject(project);
   expect(ShareUtils.readStoredProject(snapshot)).toEqual(project);
   expect(ShareUtils.buildShareUrl(project)).toBe('');
@@ -30,6 +30,7 @@ it('persists renderer dependencies with the complete gameplay package and keeps 
     game: typeof project; plugins: typeof reloaded.installed;
   };
   expect(exported.game.pluginData['3d-renderer'].mouseSupport).toBe(true);
+  expect(exported.game.pluginData['3d-renderer'].smoothMovement).toBe(true);
   let presentation!: GameplayPresentation;
   const javascript = exported.plugins[0].payload?.gameplayJavascript ?? '';
   const factory = new Function(javascript.replace('export function activate', 'function activate') + ';return activate;') as () => (context: Partial<GameplayContext>) => void;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import source from '../../../public/plugins/3d-renderer/1.1.1/plugin.html?raw';
+import source from '../../../public/plugins/3d-renderer/1.2.0/plugin.html?raw';
 import { PluginManager, parsePluginHtml } from '../../editor/manager/PluginManager';
 import { PluginRuntime, type PluginModule } from '../../editor/manager/PluginRuntime';
 import type { TinyRpgApi } from '../../runtime/infra/TinyRpgApi';
@@ -102,7 +102,7 @@ it('persists numeric gradient intensity across reopening, project changes, and f
     if (!input) throw Error('Missing distance gradient input');
     expect(input.type).toBe('number');
     expect(input.min).toBe('0'); expect(input.max).toBe('1');
-    expect(input.value).toBe('1');
+    expect(input.value).toBe('0');
     input.value = '0.375'; input.dispatchEvent(new Event('change'));
     await vi.waitFor(() => expect(input.disabled).toBe(false));
     expect(game.pluginData?.['3d-renderer']).toEqual({ distanceGradient: 0.375 });
@@ -123,7 +123,7 @@ it('persists numeric gradient intensity across reopening, project changes, and f
     await vi.waitFor(() => expect(restored.disabled).toBe(false));
     expect(reopened.game.pluginData?.['3d-renderer']).toEqual({ distanceGradient: 0, topColor: 8 });
     reopened.game.pluginData = {}; document.dispatchEvent(new Event('tiny-rpg-project-restored'));
-    expect(restored.value).toBe('1');
+    expect(restored.value).toBe('0');
     expect(save).toHaveBeenCalledTimes(2);
 });
 
@@ -199,4 +199,26 @@ it('persists Mouse Support, restores failed saves and project changes, and clean
     reopened.save.mockClear(); restored.click(); expect(reopened.save).not.toHaveBeenCalled();
     expect(document.querySelector('input[aria-label="Mouse Support"]')).toBeNull();
     expect(save).toHaveBeenCalledOnce(); expect(manager.installed).toHaveLength(1);
+});
+
+
+it.each([undefined, false, 'true', 1, true])('restores strict Smooth Movement setting %s and preserves other options', async value => {
+    const { game, save, manager } = await setup({ '3d-renderer': { topColor: 8, mouseSupport: true, ...(value === undefined ? {} : { smoothMovement: value }) } });
+    const checkbox = document.querySelector<HTMLInputElement>('input[aria-label="Smooth Movement"]');
+    expect(checkbox).not.toBeNull();
+    if (!checkbox) throw Error('Missing Smooth Movement');
+    expect(checkbox.checked).toBe(value === true);
+    checkbox.checked = true; checkbox.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(checkbox.disabled).toBe(false));
+    expect(game.pluginData?.['3d-renderer']).toMatchObject({ topColor: 8, mouseSupport: true, smoothMovement: true });
+    save.mockRejectedValueOnce(Error('Save failed'));
+    checkbox.checked = false; checkbox.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(checkbox.disabled).toBe(false));
+    expect(checkbox.checked).toBe(true);
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Save failed');
+    game.pluginData = { '3d-renderer': { smoothMovement: false } };
+    document.dispatchEvent(new Event('tiny-rpg-project-restored'));
+    expect(checkbox.checked).toBe(false);
+    manager.remove('3d-renderer'); await runtime?.settled(); save.mockClear();
+    checkbox.dispatchEvent(new Event('change')); expect(save).not.toHaveBeenCalled();
 });

@@ -24,6 +24,8 @@ type GameEngineApi = {
   gameState: GameStateApi;
   renderer: RendererApi;
   tryMove: (dx: number, dy: number) => void;
+  handleGameplayMovement?: (direction: DirectionName | null, elapsedMs: number) => boolean;
+  canAcceptGameplayMovement?: () => boolean;
   handleGameplayLook?: (deltaRadians: number) => boolean;
   handleGameplayDirection?: (direction: DirectionName) => boolean;
   closeDialog: () => void;
@@ -102,6 +104,9 @@ class InputManager {
   private heldDirections = new Map<string, HeldDirection>();
   private pressOrder = 0;
   private lastMovementTime = 0;
+  private movementFrameTime: number | null = null;
+  private continuousMovement = false;
+  private movementAdvanced = false;
   private frameHandle: number | null = null;
   private frameUsesTimeout = false;
   private destroyed = false;
@@ -305,7 +310,8 @@ class InputManager {
   }
 
   private canAcceptHeldMovement(allowDialog = false): boolean {
-    if (this.destroyed || this.gameEngine.isDestroyed) return false;
+    if (this.destroyed || this.gameEngine.isDestroyed || document.hidden) return false;
+    if (this.continuousMovement && !allowDialog && this.gameEngine.canAcceptGameplayMovement?.() === false) return false;
     if (!this.isGameModeActive() || this.gameEngine.isEditorModeActive?.()) return false;
     if (this.isEditableTarget(document.activeElement)) return false;
     const transitionActive = this.gameEngine.renderer.isRoomTransitionActive?.() ?? false;
@@ -343,6 +349,12 @@ class InputManager {
     const nextDirection = this.getEffectiveDirection();
 
     if (!nextDirection) {
+      if (this.continuousMovement && !this.movementAdvanced && this.canAcceptHeldMovement()) {
+        this.gameEngine.handleGameplayMovement?.(previousDirection, 16);
+      }
+      this.gameEngine.handleGameplayMovement?.(null, 0);
+      this.continuousMovement = false;
+      this.movementFrameTime = null;
       this.stopFrame();
       return;
     }
@@ -361,6 +373,9 @@ class InputManager {
   cancelHeldMovement(releaseCapture = true): void {
     if (releaseCapture) this.releaseMouseCapture();
     this.mouseX = null;
+    this.gameEngine.handleGameplayMovement?.(null, 0);
+    this.continuousMovement = false;
+    this.movementFrameTime = null;
     this.heldDirections.clear();
     this.touchStart = null;
     this.stopFrame();
@@ -373,7 +388,10 @@ class InputManager {
   private moveEffectiveDirection(timestamp: number): void {
     const direction = this.getEffectiveDirection();
     if (!direction) return;
-    if (!this.gameEngine.handleGameplayDirection?.(direction)) {
+    this.continuousMovement = this.gameEngine.handleGameplayMovement?.(direction, 0) ?? false;
+    this.movementFrameTime = null;
+    this.movementAdvanced = false;
+    if (!this.continuousMovement && !this.gameEngine.handleGameplayDirection?.(direction)) {
       const [dx, dy] = DIRECTION_DELTAS[direction];
       this.gameEngine.tryMove(dx, dy);
     }
@@ -395,7 +413,7 @@ class InputManager {
     this.frameUsesTimeout = true;
     this.frameHandle = globalThis.setTimeout(
       () => this.handleFrame(this.now()),
-      GameConfig.input.heldMoveIntervalMs,
+      this.continuousMovement ? 16 : GameConfig.input.heldMoveIntervalMs,
     );
   }
 
@@ -405,7 +423,13 @@ class InputManager {
       this.stopBlockedMovement();
       return;
     }
-    if (timestamp - this.lastMovementTime >= GameConfig.input.heldMoveIntervalMs) {
+    const elapsed = this.movementFrameTime === null ? 0 : Math.max(0, Math.min(100, timestamp - this.movementFrameTime));
+    this.movementFrameTime = timestamp;
+    if (this.continuousMovement) {
+      this.continuousMovement = this.gameEngine.handleGameplayMovement?.(this.getEffectiveDirection(), elapsed) ?? false;
+      if (elapsed > 0) this.movementAdvanced = true;
+      if (!this.canAcceptHeldMovement()) { this.stopBlockedMovement(); return; }
+    } else if (timestamp - this.lastMovementTime >= GameConfig.input.heldMoveIntervalMs) {
       this.moveEffectiveDirection(timestamp);
     }
     if (this.heldDirections.size > 0) this.scheduleFrame();

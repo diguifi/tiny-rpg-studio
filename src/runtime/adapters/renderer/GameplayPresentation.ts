@@ -101,11 +101,18 @@ export type GameplayFrame = Readonly<{
     feedback: GameplayFeedback;
 }>;
 
+/** Authoritative world-space tile centers, detached from mutable engine state. */
+export type GameplayMovementState = Readonly<{ x: number; y: number; canMove: boolean; stepIntervalMs?: number }>;
+export type GameplayStepResult = GameplayMovementState & Readonly<{ accepted: boolean; interrupted: boolean }>;
+
 export type GameplayPresentation = {
     /** Return true to request another frame; the renderer owns animation scheduling. */
     draw(frame: GameplayFrame): boolean | void;
     direction(direction: GameplayDirection): readonly [number, number] | null;
     /** Horizontal look in radians. Return whether supported; zero queries support without rotating. */
     look?(deltaRadians: number): boolean;
+    /** Return false to use ordinary direction repeats. Null explicitly releases/cancels motion. */
+    movement?(direction: GameplayDirection | null, elapsedMs: number): boolean;
+    readonly lookWhileMoving?: boolean;
     reset(): void;
 };

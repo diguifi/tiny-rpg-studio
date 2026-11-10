@@ -540,10 +540,42 @@ export class GameEngine {
     return true;
   }
 
+  canAcceptGameplayMovement(): boolean {
+    return !this.isDestroyed && !this.isEditorModeActive() && this.movementManager.canAcceptPresentationCommand()
+      && !this.isIntroVisible() && !this.renderer.isRoomTransitionActive();
+  }
+
+  getMovementState() {
+    const player = this.gameState.getPlayer() ?? this.gameState.getGame().start;
+    const { row, col } = this.gameState.getRoomCoords(player.roomIndex);
+    const size = this.gameState.getGame().roomSize;
+    return { x: col * size + player.x + 0.5, y: row * size + player.y + 0.5,
+      canMove: this.canAcceptGameplayMovement(), stepIntervalMs: GameConfig.input.heldMoveIntervalMs };
+  }
+
+  requestPlayerStep(dx: number, dy: number) {
+    if (!Number.isInteger(dx) || !Number.isInteger(dy) || Math.abs(dx) + Math.abs(dy) !== 1) {
+      throw Error('Player step must be a cardinal integer delta');
+    }
+    const before = this.getMovementState();
+    if (!before.canMove) return { ...before, accepted: false, interrupted: true };
+    this.tryMove(dx, dy);
+    const after = this.getMovementState();
+    const accepted = after.x === before.x + dx && after.y === before.y + dy;
+    return { ...after, accepted, interrupted: !after.canMove || (!accepted && (after.x !== before.x || after.y !== before.y)) };
+  }
+
+  handleGameplayMovement(direction: GameplayDirection | null, elapsedMs: number): boolean {
+    const provider = this.renderer.gameplayPresentation;
+    if (!provider?.movement) return false;
+    if (direction === null || !this.canAcceptGameplayMovement()) return provider.movement(null, 0);
+    return provider.movement(direction, Number.isFinite(elapsedMs) ? Math.max(0, Math.min(100, elapsedMs)) : 0);
+  }
+
   handleGameplayLook(deltaRadians: number): boolean {
     const presentation = this.renderer.gameplayPresentation;
     if (!presentation?.look || this.isEditorModeActive() || !Number.isFinite(deltaRadians)) return false;
-    if (this.inputManager.isMovementHeld() || !this.movementManager.canAcceptPresentationCommand()
+    if ((this.inputManager.isMovementHeld() && !presentation.lookWhileMoving) || !this.movementManager.canAcceptPresentationCommand()
       || this.isIntroVisible() || this.renderer.isRoomTransitionActive()) return presentation.look(0);
     const handled = presentation.look(deltaRadians);
     if (handled && deltaRadians !== 0) this.draw();

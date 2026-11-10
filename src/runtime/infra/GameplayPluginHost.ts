@@ -2,7 +2,7 @@ import { normalizeFontsPlus } from '../services/FontsPlus';
 import { normalizePluginData } from '../domain/state/PluginData';
 import type { JsonValue } from '../domain/state/PluginData';
 import type { HudPresentationProvider } from '../adapters/renderer/HudPresentation';
-import type { GameplayDirection, GameplayPresentation } from '../adapters/renderer/GameplayPresentation';
+import type { GameplayDirection, GameplayPresentation, GameplayMovementState, GameplayStepResult } from '../adapters/renderer/GameplayPresentation';
 import type { GameEngine } from '../services/GameEngine';
 import type { GameDefinition } from '../../types/gameState';
 import type { InstalledPlugin } from '../../editor/manager/PluginManager';
@@ -24,6 +24,8 @@ export type GameplayContext = {
   registerGameplayPresentation(provider: GameplayPresentation): () => void;
   requestRedraw(): void;
   requestGameplayDirection(direction: GameplayDirection): void;
+  getMovementState(): GameplayMovementState | null;
+  requestPlayerStep(dx: number, dy: number): GameplayStepResult | null;
   registerVariablePresets(presets: VariablePreset[]): void;
   onCleanup(callback: () => void): void;
 };
@@ -127,10 +129,22 @@ export class GameplayPluginHost {
             cleanup.push(unregister);
             return unregister;
           },
-          requestRedraw: () => { assertCurrent(); this.engine.draw(); },
+          requestRedraw: () => {
+            if (this.active.get(plugin.id) !== activation || this.engine.isDestroyed) return;
+            if (!loaded) assertCurrent();
+            this.engine.draw();
+          },
           requestGameplayDirection: direction => {
             if (!loaded || this.active.get(plugin.id) !== activation || this.engine.isDestroyed) return;
             this.engine.handleGameplayDirection(direction);
+          },
+          getMovementState: () => {
+            if (!loaded || this.active.get(plugin.id) !== activation || this.engine.isDestroyed) return null;
+            return this.engine.getMovementState();
+          },
+          requestPlayerStep: (dx, dy) => {
+            if (!loaded || this.active.get(plugin.id) !== activation || this.engine.isDestroyed) return null;
+            return this.engine.requestPlayerStep(dx, dy);
           },
           registerVariablePresets: presets => {
             assertCurrent();

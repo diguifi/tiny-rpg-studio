@@ -266,3 +266,21 @@ it('ignores runtime movement during activation and after activation failure', as
   expect(() => context.requestGameplayDirection('down')).not.toThrow();
   expect(handleGameplayDirection).not.toHaveBeenCalled();
 });
+
+
+it('guards integer step requests before activation and after cleanup', async () => {
+  let context!: GameplayContext;
+  const step = vi.fn(() => ({ x: 1.5, y: 2.5, canMove: true, accepted: true, interrupted: false }));
+  const engine = { exportGameData: () => ({}), importGameData: vi.fn(), requestPlayerStep: step,
+    getMovementState: () => ({ x: 1.5, y: 1.5, canMove: true }) } as unknown as GameEngine;
+  const host = new GameplayPluginHost(engine, () => [plugin], () => Promise.resolve({ activate: next => {
+    context = next; expect(context.requestPlayerStep(0, 1)).toBeNull();
+  } }));
+  await host.load({ gameplayPlugins: [{ id: 'maps', version: '1' }] });
+  expect(context.requestPlayerStep(0, 1)).toMatchObject({ accepted: true });
+  expect(step).toHaveBeenCalledOnce();
+  host.remove('maps');
+  expect(context.requestPlayerStep(0, 1)).toBeNull();
+  expect(context.getMovementState()).toBeNull();
+  expect(step).toHaveBeenCalledOnce();
+});

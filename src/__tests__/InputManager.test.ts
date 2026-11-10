@@ -3,6 +3,8 @@ import { GameConfig } from '../config/GameConfig';
 import { InputManager } from '../runtime/adapters/InputManager';
 
 type GameEngineStub = {
+  canAcceptGameplayMovement?: () => boolean;
+  handleGameplayMovement?: (direction: 'left' | 'right' | 'up' | 'down' | null, elapsedMs: number) => boolean;
   handleGameplayLook?: (deltaRadians: number) => boolean;
   handleGameplayDirection?: (direction: 'left' | 'right' | 'up' | 'down') => boolean;
   gameState: {
@@ -924,4 +926,71 @@ describe('canvas mouse capture', () => {
       await Promise.resolve(); expect(document.pointerLockElement).toBeNull();
     } finally { view.cleanup(); }
   });
+});
+
+
+it('delivers bounded elapsed held input and explicit release without grid repeats', () => {
+  vi.useFakeTimers();
+  const root = document.createElement('div'); document.body.append(root);
+  const movement = vi.fn(() => true);
+  const engine = createEngine({ handleGameplayMovement: movement });
+  const input = new InputManager(engine, root);
+  try {
+    input.beginHeldDirection('test', 'up');
+    expect(movement).toHaveBeenCalledWith('up', 0);
+    vi.advanceTimersByTime(200);
+    expect(movement.mock.calls.length).toBeGreaterThan(2);
+    expect(engine.tryMove).not.toHaveBeenCalled();
+    input.endHeldDirection('test');
+    expect(movement).toHaveBeenLastCalledWith(null, 0);
+    const count = movement.mock.calls.length; vi.advanceTimersByTime(500);
+    expect(movement).toHaveBeenCalledTimes(count);
+  } finally { input.destroy(); root.remove(); vi.useRealTimers(); }
+});
+
+
+it('zeros the first frame, caps background gaps, preserves last pressed direction, and cancels on blur', () => {
+  let frame: FrameRequestCallback = () => {};
+  vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => { frame = callback; return 1; }));
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  const root = document.createElement('div'); document.body.append(root);
+  const movement = vi.fn((_direction: 'left' | 'right' | 'up' | 'down' | null, _elapsed: number) => true);
+  const input = new InputManager(createEngine({ handleGameplayMovement: movement }), root);
+  try {
+    input.beginHeldDirection('up', 'up'); frame(1000);
+    expect(movement).toHaveBeenLastCalledWith('up', 0);
+    frame(1016); expect(movement).toHaveBeenLastCalledWith('up', 16);
+    frame(11016); expect(movement).toHaveBeenLastCalledWith('up', 100);
+    input.beginHeldDirection('left', 'left'); frame(11032);
+    expect(movement).toHaveBeenLastCalledWith('left', 0);
+    input.endHeldDirection('left'); frame(11048);
+    expect(movement).toHaveBeenLastCalledWith('up', 0);
+    globalThis.dispatchEvent(new Event('blur'));
+    expect(movement).toHaveBeenLastCalledWith(null, 0); expect(input.isMovementHeld()).toBe(false);
+  } finally { input.destroy(); root.remove(); vi.unstubAllGlobals(); }
+});
+
+it('gives a swipe ending before the next frame a bounded impulse and release', () => {
+  const root = document.createElement('div'); document.body.append(root);
+  const movement = vi.fn((_direction: 'left' | 'right' | 'up' | 'down' | null, _elapsed: number) => true);
+  const engine = createEngine({ handleGameplayMovement: movement });
+  const input = new InputManager(engine, root);
+  try {
+    input.handleTouchStart(createTouchEvent(50, 100, { target: engine.canvas }));
+    input.handleTouchEnd(createTouchEvent(50, 20, { target: engine.canvas }));
+    expect(movement.mock.calls).toEqual([['up', 0], ['up', 16], [null, 0]]);
+    expect(input.isMovementHeld()).toBe(false);
+  } finally { input.destroy(); root.remove(); }
+});
+
+
+it('keeps ordinary repeat input available when no provider opts into continuous movement', () => {
+  const root = document.createElement('div'); document.body.append(root);
+  const engine = createEngine({ canAcceptGameplayMovement: () => false, handleGameplayMovement: () => false });
+  const input = new InputManager(engine, root);
+  try {
+    input.beginHeldDirection('test', 'up');
+    expect(engine.tryMove).toHaveBeenCalledWith(0, -1);
+    expect(input.isMovementHeld()).toBe(true);
+  } finally { input.destroy(); root.remove(); }
 });

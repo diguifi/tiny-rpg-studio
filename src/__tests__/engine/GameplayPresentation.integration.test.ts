@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { GameEngine } from '../../runtime/services/GameEngine';
 import { GameplayPluginHost, type GameplayContext } from '../../runtime/infra/GameplayPluginHost';
 import { parsePluginHtml } from '../../editor/manager/PluginManager';
-import source from '../../../public/plugins/3d-renderer/1.1.1/plugin.html?raw';
+import source from '../../../public/plugins/3d-renderer/1.2.0/plugin.html?raw';
 import type { GameplayBillboard, GameplayScene } from '../../runtime/adapters/renderer/GameplayPresentation';
 
 let engine: GameEngine;
@@ -502,4 +502,167 @@ it('completes animated movement after the editor loading transaction has expired
     expect(engine.gameState.getPlayer()).toMatchObject({ x: 3, y: 3 });
     await vi.advanceTimersByTimeAsync(332);
     expect(engine.gameState.getPlayer()).toMatchObject({ x: 4, y: 3 });
+});
+
+
+it('offers continuous input only for literal true and keeps authoritative coordinates integral', async () => {
+    engine.gameState.game.pluginData = { '3d-renderer': { smoothMovement: true, mouseSupport: true } };
+    await activate();
+    document.body.classList.add('game-mode');
+    expect(engine.handleGameplayMovement('up', 0)).toBe(true);
+    const before = engine.getGameplayScene().player;
+    expect(engine.handleGameplayLook(Math.PI / 4)).toBe(true);
+    for (let i = 0; i < 15; i++) {
+        engine.handleGameplayMovement('up', 10);
+        const player = engine.gameState.getPlayer();
+        expect(Number.isInteger(player?.x)).toBe(true); expect(Number.isInteger(player?.y)).toBe(true);
+    }
+    const after = engine.getGameplayScene().player;
+    expect(after.x).toBe(before.x + 1); expect(after.y).toBe(before.y - 1);
+    engine.handleGameplayMovement(null, 0);
+    engine.gameState.game.pluginData = { '3d-renderer': { smoothMovement: 'true' } };
+    expect(engine.handleGameplayMovement('up', 16)).toBe(false);
+    document.body.classList.remove('game-mode');
+});
+
+
+const enableSmooth = async (mouseSupport = false) => {
+    engine.gameState.game.pluginData = { '3d-renderer': { smoothMovement: true, mouseSupport, initialDirection: 1 } };
+    const host = await activate(); engine.enemyManager.stop();
+    return host;
+};
+const travel = (elapsed = 150, direction: 'up' | 'down' = 'up') => {
+    for (let remaining = elapsed; remaining > 0; remaining -= 10) engine.handleGameplayMovement(direction, Math.min(10, remaining));
+};
+
+it.each(['wall', 'tile', 'chest', 'trap', 'door'] as const)('uses grid rules for smooth %s collisions at held cadence', async blocker => {
+    await enableSmooth();
+    if (blocker === 'wall') engine.gameState.game.rooms[0].walls[3][4] = true;
+    if (blocker === 'tile') {
+        engine.gameState.game.tileset.maps[0].ground[3][4] = 'smooth-wall';
+        vi.spyOn(engine.tileManager, 'getTile').mockReturnValue({ collision: true, category: 'Terrain', name: 'Stone' } as TileDefinition);
+    }
+    if (blocker === 'chest' || blocker === 'trap' || blocker === 'door') {
+        const object = engine.gameState.objectManager.setObjectPosition(blocker, 0, 4, 3);
+        if (!object) throw Error('Missing blocker');
+        if (blocker === 'chest') object.variableId = 'var-1';
+        if (blocker === 'trap') object.solid = true;
+    }
+    const step = vi.spyOn(engine, 'tryMove');
+    travel(400);
+    expect(engine.gameState.getPlayer()).toMatchObject({ x: 3, y: 3 });
+    expect(step.mock.calls.length).toBeGreaterThan(0);
+    expect(step.mock.calls.length).toBeLessThanOrEqual(3);
+    expect(step.mock.calls.every(([dx, dy]) => dx === 1 && dy === 0)).toBe(true);
+});
+
+it.each(['water', 'lava'] as const)('honors %s traversal skills during smooth travel', async terrain => {
+    await enableSmooth();
+    engine.gameState.game.tileset.maps[0].ground[3][4] = 'smooth-terrain';
+    vi.spyOn(engine.tileManager, 'getTile').mockReturnValue({ collision: true, category: terrain === 'water' ? 'agua' : 'perigo', name: terrain === 'water' ? 'Agua' : 'Lava' } as TileDefinition);
+    const skills = vi.spyOn(engine.gameState, 'hasSkill').mockReturnValue(false);
+    travel(150); expect(engine.gameState.getPlayer()?.x).toBe(3);
+    skills.mockImplementation(id => id === (terrain === 'water' ? 'water-walker' : 'lava-walker'));
+    travel(150); expect(engine.gameState.getPlayer()?.x).toBe(4);
+});
+
+it('consumes one key, pushes boxes and activates pressure plates through normal entry rules', async () => {
+    await enableSmooth();
+    const door = engine.gameState.objectManager.setObjectPosition('door', 0, 4, 3);
+    engine.gameState.addKeys(1);
+    const consume = vi.spyOn(engine.gameState, 'consumeKey');
+    travel(); expect(door?.opened).toBe(true); expect(consume).toHaveBeenCalledOnce();
+    const box = engine.gameState.objectManager.setObjectPosition('push-box', 0, 5, 3);
+    travel(); expect(box?.x).toBe(6); expect(engine.gameState.getPlayer()?.x).toBe(5);
+    engine.gameState.objectManager.setObjectPosition('push-box', 0, 7, 4);
+    const plate = engine.gameState.objectManager.setObjectPosition('pressure-plate', 0, 4, 3);
+    if (!plate) throw Error('Missing plate'); plate.variableId = 'var-1';
+    travel(150, 'down'); expect(engine.gameState.isVariableOn('var-1')).toBe(true);
+    travel(150, 'down'); expect(engine.gameState.isVariableOn('var-1')).toBe(false);
+});
+
+it('opens NPC dialogue once and interrupts the rest of a continuous update', async () => {
+    await enableSmooth();
+    engine.addSprite({ id: 'smooth-npc', type: 'old-mage', x: 4, y: 3, roomIndex: 0, placed: true, text: 'Hello' });
+    const open = vi.spyOn(engine.interactionManager, 'openNpcDialog');
+    travel(400);
+    expect(open).toHaveBeenCalledOnce(); expect(engine.gameState.getDialog().active).toBe(true);
+    expect(engine.gameState.getPlayer()).toMatchObject({ x: 3, y: 3 });
+});
+
+it('collects objects once and stops at the pickup overlay', async () => {
+    await enableSmooth();
+    const key = engine.gameState.objectManager.setObjectPosition('key', 0, 4, 3);
+    const interact = vi.spyOn(engine.interactionManager, 'handlePlayerInteractions');
+    travel(400);
+    expect(key?.collected).toBe(true); expect(engine.isPickupOverlayActive()).toBe(true);
+    expect(engine.gameState.getPlayer()?.x).toBe(4);
+    expect(interact).toHaveBeenCalledOnce();
+});
+
+it('routes enemy combat through attempted entry and does not attack each render frame', async () => {
+    await enableSmooth();
+    engine.addEnemy({ type: 'giant-rat', x: 4, y: 3, roomIndex: 0 });
+    const collision = vi.spyOn(engine.enemyManager, 'collideAt');
+    travel(400);
+    expect(engine.gameState.getPlayer()?.x).toBe(3);
+    expect(collision.mock.calls.length).toBeGreaterThan(0); expect(collision.mock.calls.length).toBeLessThanOrEqual(3);
+});
+
+it('crosses room seams continuously, relays cardinal moves, and recenters on teleport/correction', async () => {
+    await enableSmooth();
+    engine.gameState.setPlayerPosition(7, 3, 0);
+    const relay = vi.spyOn(engine.online, 'notifyMove');
+    travel(); expect(engine.gameState.getPlayer()).toMatchObject({ x: 0, y: 3, roomIndex: 1 });
+    travel(); expect(engine.gameState.getPlayer()).toMatchObject({ x: 1, y: 3, roomIndex: 1 });
+    expect(relay.mock.calls).toEqual([[1, 0], [1, 0]]);
+    engine.gameState.setPlayerPosition(3, 3, 0);
+    engine.gameState.game.exits = [{ roomIndex: 0, x: 4, y: 3, targetRoomIndex: 2, targetX: 1, targetY: 1 }];
+    travel(); expect(engine.gameState.getPlayer()).toMatchObject({ x: 1, y: 1, roomIndex: 2 });
+    engine.gameState.game.exits = [];
+    travel(); expect(engine.gameState.getPlayer()).toMatchObject({ x: 2, y: 1, roomIndex: 2 });
+});
+
+it.each(['pause', 'dialog', 'intro', 'pickup', 'level', 'stun', 'death', 'editor'] as const)('blocks continuous input during %s', async blocked => {
+    await enableSmooth();
+    if (blocked === 'pause') engine.gameState.playing = false;
+    if (blocked === 'dialog') vi.spyOn(engine.gameState, 'getDialog').mockReturnValue({ ...engine.gameState.getDialog(), active: true });
+    if (blocked === 'intro') vi.spyOn(engine, 'isIntroVisible').mockReturnValue(true);
+    if (blocked === 'pickup') vi.spyOn(engine.gameState, 'isPickupOverlayActive').mockReturnValue(true);
+    if (blocked === 'level') vi.spyOn(engine.gameState, 'isLevelUpOverlayActive').mockReturnValue(true);
+    if (blocked === 'stun') vi.spyOn(engine.combatStunManager, 'isStunned').mockReturnValue(true);
+    if (blocked === 'death') vi.spyOn(engine.gameState, 'isGameOver').mockReturnValue(true);
+    if (blocked === 'editor') vi.spyOn(engine, 'isEditorModeActive').mockReturnValue(true);
+    const step = vi.spyOn(engine, 'tryMove'); travel(300);
+    expect(step).not.toHaveBeenCalled(); expect(engine.gameState.getPlayer()).toMatchObject({ x: 3, y: 3 });
+});
+
+it('allows smooth mouse look while held and cancels motion on reset and removal', async () => {
+    const host = await enableSmooth(true);
+    const previousMode = document.body.className; document.body.className = 'game-mode';
+    try {
+        const provider = engine.renderer.gameplayPresentation;
+        if (!provider?.look) throw Error('Missing provider');
+        const look = vi.spyOn(provider, 'look');
+        engine.inputManager.beginHeldDirection('test', 'up');
+        engine.handleGameplayLook(Math.PI / 4); expect(look).toHaveBeenLastCalledWith(Math.PI / 4);
+        vi.advanceTimersByTime(50);
+        engine.resetGame(); expect(engine.inputManager.isMovementHeld()).toBe(false);
+        engine.dismissIntroScreen(); vi.advanceTimersByTime(25);
+        expect(engine.gameState.getPlayer()).toMatchObject({ x: 3, y: 3 });
+        host.remove('3d-renderer');
+        expect(engine.handleGameplayMovement('up', 100)).toBe(false);
+        expect(provider.movement?.('up', 100)).toBe(false);
+        engine.tryMove(1, 0); expect(engine.gameState.getPlayer()?.x).toBe(4);
+    } finally { document.body.className = previousMode; }
+});
+
+
+it('keeps smooth movement active after the loading transaction expires and rejects invalid steps', async () => {
+    engine.gameState.game.pluginData = { '3d-renderer': { smoothMovement: true, initialDirection: 1 } };
+    let current = true; await activate(() => current); current = false;
+    expect(() => travel()).not.toThrow(); expect(engine.gameState.getPlayer()?.x).toBe(4);
+    const move = vi.spyOn(engine, 'tryMove');
+    for (const [dx, dy] of [[1, 1], [0.5, 0], [0, 0], [Infinity, 0]]) expect(() => engine.requestPlayerStep(dx, dy)).toThrow(/cardinal/);
+    expect(move).not.toHaveBeenCalled();
 });
